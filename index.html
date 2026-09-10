@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Für Naya - 3D True Lily</title>
+    <title>Für Naya - Multi-Bloom Lily</title>
     <style>
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: #030202; /* Tiefschwarz für perfekten Kontrast */
+            background-color: #030202; 
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             touch-action: none;
@@ -22,7 +22,7 @@
         }
         .greeting-container {
             position: absolute;
-            top: 12%;
+            top: 10%;
             width: 100%;
             text-align: center;
             pointer-events: none;
@@ -81,7 +81,7 @@
         <div class="sub-greeting">14. September ✨ Von Marven</div>
     </div>
     
-    <div class="interaction-hint">Wische, um die Lilie im 3D-Raum zu betrachten</div>
+    <div class="interaction-hint">Wische, um die Lilien im 3D-Raum zu betrachten</div>
 
     <canvas id="canvas"></canvas>
 
@@ -102,169 +102,179 @@
         window.addEventListener('resize', resize);
         resize();
 
-        const fov = 550; 
+        const fov = 600; 
         let points = [];
         let globalProgress = 0;
 
-        // --- DIE HOCHKOMPLEXE 3D-MATHEMATIK EINER ECHTEN LILIE ---
-        function generateTrueLily() {
-            points = [];
-            const basePink = 335; // Hauptfarbe: Warmes Pink/Magenta
+        // --- HILFSFUNKTION FÜR LOKALE 3D-DREHUNGEN DER EINZELNEN BLÜTEN ---
+        function rotate3D(x, y, z, rotX, rotY, rotZ) {
+            // X-Achse
+            let y1 = y * Math.cos(rotX) - z * Math.sin(rotX);
+            let z1 = y * Math.sin(rotX) + z * Math.cos(rotX);
+            let x1 = x;
+            // Y-Achse
+            let x2 = x1 * Math.cos(rotY) - z1 * Math.sin(rotY);
+            let z2 = x1 * Math.sin(rotY) + z1 * Math.cos(rotY);
+            let y2 = y1;
+            // Z-Achse
+            let x3 = x2 * Math.cos(rotZ) - y2 * Math.sin(rotZ);
+            let y3 = x2 * Math.sin(rotZ) + y2 * Math.cos(rotZ);
+            let z3 = z2;
             
-            // 1. DER STIEL & DIE BLÄTTER (Grün)
-            for (let i = 0; i < 1500; i++) {
+            return { x: x3, y: y3, z: z3 };
+        }
+
+        // --- GENERIERT EINE EINZELNE BLÜTE AN EINER BESTIMMTEN POSITION ---
+        function addLilyBloom(offsetX, offsetY, offsetZ, rotX, rotY, rotZ, scale, baseHue) {
+            // 1. Die 6 Blütenblätter (Tepals)
+            for (let p = 0; p < 6; p++) {
+                let isInner = p % 2 === 0;
+                let petalAngle = (Math.PI * 2 / 6) * p;
+                
+                // Reduzierte Punktzahl pro Blatt für mehr Klarheit bei mehreren Blüten
+                for (let i = 0; i < 700; i++) {
+                    let t = Math.random(); 
+                    let w = (Math.random() - 0.5) * 2; 
+                    
+                    let radius = t * 180 * scale;
+                    let py = (-Math.sin(t * Math.PI * 0.8) * 120 + Math.pow(t, 3) * 80) * scale;
+                    
+                    if (isInner) {
+                        radius *= 0.9;
+                        py -= 20 * t * scale; 
+                    }
+
+                    let petalWidth = Math.sin(t * Math.PI) * (1 - t * 0.2) * 55 * scale;
+                    let lateral = w * petalWidth;
+                    
+                    let px = Math.cos(petalAngle) * radius - Math.sin(petalAngle) * lateral;
+                    let pz = Math.sin(petalAngle) * radius + Math.cos(petalAngle) * lateral;
+                    
+                    px += (Math.random() - 0.5) * 2;
+                    py += (Math.random() - 0.5) * 2 + (isInner ? -3 : 3);
+                    pz += (Math.random() - 0.5) * 2;
+
+                    // Farb-Algorithmus
+                    let color;
+                    let absW = Math.abs(w);
+                    if (t < 0.15) {
+                        color = `hsla(80, 60%, 50%, 0.8)`; // Grünes Zentrum
+                    } else if (absW > 0.7 && t > 0.3) {
+                        color = `hsla(${baseHue}, 20%, 90%, 0.7)`; // Heller Rand
+                    } else {
+                        let saturation = 70 + (t * 20);
+                        let lightness = 50 + (absW * 15); 
+                        color = `hsla(${baseHue}, ${saturation}%, ${lightness}%, 0.75)`;
+                    }
+                    
+                    // Sommersprossen
+                    if (t > 0.2 && t < 0.7 && absW < 0.6 && Math.random() < 0.04) {
+                        color = `hsla(${baseHue - 15}, 90%, 25%, 0.9)`;
+                        py -= 1.5; 
+                    }
+                    
+                    // Transformation für diese spezifische Blüte
+                    let rotated = rotate3D(px, py, pz, rotX, rotY, rotZ);
+                    points.push(new Point3D(rotated.x + offsetX, rotated.y + offsetY, rotated.z + offsetZ, color));
+                }
+            }
+
+            // 2. Staubgefäße und Stempel
+            for (let s = 0; s < 7; s++) {
+                let isPistil = (s === 6); // Der mittlere Stempel
+                let angle = isPistil ? 0 : (Math.PI * 2 / 6) * s + (Math.PI / 6);
+                
+                for(let i = 0; i < (isPistil ? 150 : 100); i++) {
+                    let t = Math.random();
+                    let radius = isPistil ? ((Math.random()-0.5)*2) : (t * 35 * scale);
+                    let py = -t * (isPistil ? 130 : 110) * scale;
+                    
+                    let px = Math.cos(angle) * radius + (Math.random() - 0.5) * 2;
+                    let pz = Math.sin(angle) * radius + (Math.random() - 0.5) * 2;
+                    
+                    let color;
+                    if (isPistil) {
+                        color = t > 0.95 ? `hsla(140, 50%, 60%, 0.9)` : `hsla(70, 40%, 80%, 0.8)`;
+                        if (t > 0.95) { px *= 3; pz *= 3; }
+                    } else {
+                        if (t > 0.9) {
+                            px += (Math.random() - 0.5) * 6;
+                            py += (Math.random() - 0.5) * 12; 
+                            pz += (Math.random() - 0.5) * 6;
+                            color = `hsla(25, 90%, 45%, 0.9)`; // Rostbraun Pollen
+                        } else {
+                            color = `hsla(40, 50%, 85%, 0.5)`;
+                        }
+                    }
+
+                    let rotated = rotate3D(px, py, pz, rotX, rotY, rotZ);
+                    points.push(new Point3D(rotated.x + offsetX, rotated.y + offsetY, rotated.z + offsetZ, color));
+                }
+            }
+        }
+
+        // --- BAUT DIE KOMPLETTE PFLANZE AUF ---
+        function generatePlant() {
+            points = [];
+            
+            // 1. HAUPTSTIEL (Zieht sich durch die ganze Pflanze)
+            for (let i = 0; i < 2000; i++) {
                 let t = Math.random();
-                let py = t * 400; // Stiel wächst nach unten
+                let py = -100 + t * 600; // Von oben nach ganz unten
                 let radius = 4 + Math.random() * 2;
                 let angle = Math.random() * Math.PI * 2;
                 
                 let px = Math.cos(angle) * radius + (Math.random() - 0.5) * 2;
                 let pz = Math.sin(angle) * radius + (Math.random() - 0.5) * 2;
                 
-                points.push(new Point3D(px, py + 20, pz, `hsla(120, 50%, 30%, 0.8)`));
+                // Leichte Biegung des Stiels
+                px += Math.sin(t * Math.PI) * 20; 
+
+                points.push(new Point3D(px, py, pz, `hsla(120, 50%, 25%, 0.8)`));
             }
 
-            // Einige seitliche grüne Lilien-Blätter am Stiel
-            for (let leaf = 0; leaf < 6; leaf++) {
-                let leafAngle = Math.random() * Math.PI * 2;
-                let leafHeight = 100 + Math.random() * 200;
-                
-                for(let i = 0; i < 300; i++) {
-                    let t = Math.random();
-                    let w = (Math.random() - 0.5);
-                    
-                    let radius = t * 100;
-                    let py = leafHeight + t * 50; 
-                    let leafWidth = Math.sin(t * Math.PI) * 15;
-                    let lateral = w * leafWidth;
-                    
-                    let px = Math.cos(leafAngle) * radius - Math.sin(leafAngle) * lateral;
-                    let pz = Math.sin(leafAngle) * radius + Math.cos(leafAngle) * lateral;
-                    
-                    points.push(new Point3D(px, py, pz, `hsla(130, 45%, 35%, 0.7)`));
-                }
-            }
-
-            // 2. DIE 6 BREITEN BLÜTENBLÄTTER (Tepals)
-            for (let p = 0; p < 6; p++) {
-                // 3 innere und 3 äußere Blätter (leicht versetzt für Volumen)
-                let isInner = p % 2 === 0;
-                let petalAngle = (Math.PI * 2 / 6) * p;
-                
-                // 1500 Punkte pro Blatt (extrem detailliert)
-                for (let i = 0; i < 1500; i++) {
-                    let t = Math.random(); // Länge (0 = Zentrum, 1 = Spitze)
-                    // Mehr Punkte am Rand und in der Mitte konzentrieren
-                    let w = (Math.random() - 0.5) * 2; // -1 bis 1
-                    
-                    // Form des Trichters: Erst steil nach oben (negatives Y), dann nach außen/unten rollend
-                    let radius = t * 180;
-                    // Die Biegung: Geht hoch, dann wieder leicht runter
-                    let py = -Math.sin(t * Math.PI * 0.8) * 120 + Math.pow(t, 3) * 80;
-                    
-                    // Innere Blätter stehen etwas steiler
-                    if (isInner) {
-                        radius *= 0.9;
-                        py -= 20 * t; 
-                    }
-
-                    // Die Breite des Blattes (Sehr breit in der Mitte, spitz zulaufend)
-                    let petalWidth = Math.sin(t * Math.PI) * (1 - t * 0.2) * 55;
-                    let lateral = w * petalWidth;
-                    
-                    // 3D Transformation
-                    let px = Math.cos(petalAngle) * radius - Math.sin(petalAngle) * lateral;
-                    let pz = Math.sin(petalAngle) * radius + Math.cos(petalAngle) * lateral;
-                    
-                    // Organisches Rauschen
-                    px += (Math.random() - 0.5) * 2;
-                    py += (Math.random() - 0.5) * 2 + (isInner ? -5 : 5);
-                    pz += (Math.random() - 0.5) * 2;
-
-                    // FARB-ALGORITHMUS (Multi-Color Lily)
-                    let color;
-                    let absW = Math.abs(w);
-                    
-                    if (t < 0.15) {
-                        // Zentrum: Hellgrün / Gelblich
-                        color = `hsla(80, 60%, 60%, 0.9)`;
-                    } else if (absW > 0.7 && t > 0.3) {
-                        // Äußerer Rand: Zartes Weiß/Hellrosa
-                        color = `hsla(${basePink}, 20%, 90%, 0.8)`;
-                    } else {
-                        // Hauptfläche: Tiefes, warmes Pink
-                        let saturation = 70 + (t * 20);
-                        let lightness = 50 + (absW * 15); // Hellerer Streifen in der Mitte
-                        color = `hsla(${basePink}, ${saturation}%, ${lightness}%, 0.85)`;
-                    }
-                    
-                    // DIE SOMMERSPROSSEN (Speckles) - Typisch für Stargazer Lilien!
-                    if (t > 0.2 && t < 0.7 && absW < 0.6) {
-                        if (Math.random() < 0.04) {
-                            // Dunkelrote/Magenta Punkte
-                            color = `hsla(${basePink - 10}, 90%, 25%, 1)`;
-                            // Speckles sind leicht erhaben
-                            py -= 1.5; 
-                        }
-                    }
-                    
-                    points.push(new Point3D(px, py, pz, color));
-                }
-            }
-
-            // 3. DIE 6 STAUBGEFÄßE & 1 STEMPEL (Mitte)
-            // Stempel (Pistil) - Einer in der genauen Mitte
-            for(let i = 0; i < 300; i++) {
+            // 2. SEITENTRIEBE (Verbinden Stiel mit den seitlichen Blüten)
+            // Trieb zur linken Blüte
+            for(let i=0; i<400; i++) {
                 let t = Math.random();
-                let py = -t * 130; 
-                let px = (Math.random() - 0.5) * 3;
-                let pz = (Math.random() - 0.5) * 3;
-                
-                // Spitze des Stempels ist leicht verdickt und andersfarbig
-                if (t > 0.95) {
-                    px *= 3; pz *= 3;
-                    points.push(new Point3D(px, py, pz, `hsla(140, 50%, 60%, 0.9)`)); // Grüne Narbe
-                } else {
-                    points.push(new Point3D(px, py, pz, `hsla(70, 40%, 80%, 0.8)`)); // Weißer Griffel
-                }
+                let px = -60 * t; 
+                let py = 120 - 40 * t; 
+                let pz = 40 * t;
+                points.push(new Point3D(px + (Math.random()-0.5)*3, py + (Math.random()-0.5)*3, pz + (Math.random()-0.5)*3, `hsla(120, 50%, 28%, 0.8)`));
+            }
+            // Trieb zur rechten Blüte
+            for(let i=0; i<400; i++) {
+                let t = Math.random();
+                let px = 80 * t; 
+                let py = 220 - 30 * t; 
+                let pz = -30 * t;
+                points.push(new Point3D(px + (Math.random()-0.5)*3, py + (Math.random()-0.5)*3, pz + (Math.random()-0.5)*3, `hsla(120, 50%, 28%, 0.8)`));
             }
 
-            // 6 Staubgefäße (Stamens)
-            for (let s = 0; s < 6; s++) {
-                let angle = (Math.PI * 2 / 6) * s + (Math.PI / 6);
-                
-                for(let i = 0; i < 300; i++) {
-                    let t = Math.random();
-                    let radius = t * 40; // Gehen leicht nach außen
-                    let py = -t * 110; // Etwas kürzer als der Stempel
-                    
-                    let px = Math.cos(angle) * radius + (Math.random() - 0.5) * 2;
-                    let pz = Math.sin(angle) * radius + (Math.random() - 0.5) * 2;
-                    
-                    if (t > 0.9) {
-                        // Antheren (Die dicken, Pollen-besetzten Spitzen)
-                        px += (Math.random() - 0.5) * 8;
-                        py += (Math.random() - 0.5) * 15; // Länglich
-                        pz += (Math.random() - 0.5) * 8;
-                        points.push(new Point3D(px, py, pz, `hsla(25, 90%, 45%, 1)`)); // Rostbraun/Orange
-                    } else {
-                        // Filamente (Fäden)
-                        points.push(new Point3D(px, py, pz, `hsla(40, 50%, 85%, 0.6)`));
-                    }
-                }
-            }
+            // 3. DIE 3 BLÜTEN PLATZIEREN (OffsetX, OffsetY, OffsetZ, RotX, RotY, RotZ, Scale, Hue)
+            
+            // Hauptblüte (Ganz oben, majestätisch, guckt leicht nach oben/vorne)
+            // Hue 335 = Intensives Magenta-Pink
+            addLilyBloom(0, -100, 0, 0.2, 0, 0, 1.0, 335); 
+            
+            // Zweite Blüte (Mitte-links, guckt nach links und etwas nach unten)
+            // Hue 345 = Geht minimal mehr ins Rötlich-Pinke
+            addLilyBloom(-80, 80, 50, 0.4, -0.8, -0.4, 0.85, 345);
+            
+            // Dritte Blüte (Unten-rechts, guckt nach rechts)
+            // Hue 325 = Geht minimal mehr ins kühlere Pfirsich-Rosa
+            addLilyBloom(100, 190, -40, 0.3, 1.2, 0.3, 0.75, 325);
         }
 
         // --- 3D PARTIKEL KLASSE ---
         class Point3D {
             constructor(tx, ty, tz, color) {
-                // Ziel-Koordinaten der Lilie
                 this.tx = tx; 
                 this.ty = ty; 
                 this.tz = tz;
                 
                 // Start-Koordinaten (Sternenstaub-Explosion)
-                let randomRadius = 50 + Math.random() * 400;
+                let randomRadius = 100 + Math.random() * 500;
                 let randomAngle1 = Math.random() * Math.PI * 2;
                 let randomAngle2 = Math.random() * Math.PI * 2;
                 this.x = Math.cos(randomAngle1) * Math.sin(randomAngle2) * randomRadius;
@@ -273,15 +283,13 @@
                 
                 this.color = color;
                 
-                // Geschmeidige Interpolation
                 this.speed = 0.015 + Math.random() * 0.025;
-                this.delay = Math.random() * 0.8;
+                this.delay = Math.random() * 1.2; // Längeres Delay für dramatischen Aufbau
             }
 
             update(progress) {
                 if (progress > this.delay) {
-                    // Cubic Ease-Out für weiches Einrasten der Punkte
-                    let p = Math.min(1, (progress - this.delay) * 1.5);
+                    let p = Math.min(1, (progress - this.delay) * 1.2);
                     let ease = 1 - Math.pow(1 - p, 4); 
                     
                     this.currentX = this.x + (this.tx - this.x) * ease;
@@ -295,13 +303,13 @@
             }
         }
 
-        generateTrueLily();
+        generatePlant();
 
         // --- 3D TOUCH-STEUERUNG ---
-        let rotX = -0.3; // Standardansicht leicht von oben
+        let rotX = -0.1; 
         let rotY = 0;
         let vX = 0;
-        let vY = 0.003; // Extrem sanfte Auto-Rotation
+        let vY = 0.003; 
         
         let isDragging = false;
         let prevTouchX = 0;
@@ -343,32 +351,30 @@
 
         // --- RENDER LOOP ---
         function animate() {
-            // Leichter Trail für magisches Glühen, kaschiert einzelne Pixel
             ctx.fillStyle = 'rgba(2, 1, 2, 0.4)';
             ctx.fillRect(0, 0, width, height);
 
-            if (globalProgress < 2.0) {
+            if (globalProgress < 2.5) {
                 globalProgress += 0.006;
             }
 
             rotY += vY;
             rotX += vX;
-            rotX = Math.max(-1.5, Math.min(1.5, rotX));
+            rotX = Math.max(-1.0, Math.min(1.0, rotX)); // Kamera-Limitierung
 
             if (!isDragging) {
                 vY *= 0.94;
                 vX *= 0.94;
-                if (Math.abs(vY) < 0.0005) vY += 0.001; // Auto-Drehung aktivieren
+                if (Math.abs(vY) < 0.0005) vY += 0.001; 
             }
 
-            // Screen-Blending simuliert Licht
             ctx.globalCompositeOperation = 'screen';
 
             const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
             const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
 
             const centerX = width / 2;
-            const centerY = height / 2 + 50; 
+            const centerY = height / 2 - 20; // Etwas zentrierter
 
             for (let i = 0; i < points.length; i++) {
                 let p = points[i];
@@ -388,14 +394,14 @@
                 let y2 = y1;
 
                 // Perspektive
-                let scale = fov / (fov + z2 + 250); 
+                let scale = fov / (fov + z2 + 300); 
                 
                 if (scale > 0) {
                     let drawX = centerX + x2 * scale;
                     let drawY = centerY + y2 * scale;
                     
                     ctx.fillStyle = p.color;
-                    let size = Math.max(0.6, 1.4 * scale);
+                    let size = Math.max(0.5, 1.3 * scale);
                     
                     ctx.fillRect(drawX, drawY, size, size);
                 }
