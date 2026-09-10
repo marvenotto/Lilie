@@ -3,22 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Für Naya - Perfect Harmony</title>
+    <title>Für Naya - Geometric Roselily</title>
     <style>
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
             background-color: #020101; 
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            /* WICHTIG FÜR HANDYS: Blockiert System-Gesten wie Zurück-Wischen */
             touch-action: none;
+            overscroll-behavior: none;
             user-select: none;
             -webkit-user-select: none;
         }
         canvas {
-            display: block; width: 100%; height: 100%; cursor: grab;
-        }
-        canvas:active {
-            cursor: grabbing;
+            display: block; width: 100%; height: 100%;
         }
         .greeting-container {
             position: absolute; top: 12%; width: 100%; text-align: center;
@@ -54,7 +53,7 @@
         <div class="sub-greeting">14. September ✨ Von Marven</div>
     </div>
     
-    <div class="interaction-hint" id="hint">Tippe, um die Blüte zu entfalten</div>
+    <div class="interaction-hint" id="hint">Tippe 1x zum Erwecken • Tippe 2x für Magie</div>
 
     <canvas id="canvas"></canvas>
 
@@ -78,24 +77,38 @@
 
         const fov = 650; 
         let points = [];
+        
+        // Animations-Status
         let targetBloom = 0; 
         let currentBloom = 0;
-        let isFullyBloomed = false;
+        
+        // WIREFRAME-MODUS (Geometrische Matrix)
+        let isWireframe = false;
+        let wireframeCurrent = 0;
 
         class AnimatedPoint {
-            constructor(cx, cy, cz, ox, oy, oz, color, bloomDelay) {
-                this.cx = cx; this.cy = cy; this.cz = cz; // Position in der geschlossenen Knospe
-                this.ox = ox; this.oy = oy; this.oz = oz; // Position in der offenen Blüte
+            constructor(cx, cy, cz, ox, oy, oz, color, bloomDelay, row, col, cols, isStamen = false) {
+                this.cx = cx; this.cy = cy; this.cz = cz; 
+                this.ox = ox; this.oy = oy; this.oz = oz; 
                 this.x = cx; this.y = cy; this.z = cz;
                 this.color = color;
                 
+                // Für das Drahtgitter (Netzwerk-Verbindungen)
+                this.row = row;
+                this.col = col;
+                this.cols = cols;
+                this.isStamen = isStamen;
+                
+                this.drawX = 0;
+                this.drawY = 0;
+                this.scale = 0;
+                
                 this.bloomDelay = bloomDelay; 
-                this.bloomSpeed = 0.8 + Math.random() * 0.4; 
+                this.bloomSpeed = 0.7 + Math.random() * 0.5; 
             }
 
             update(globalBloom) {
                 let localBloom = Math.max(0, Math.min(1, (globalBloom - this.bloomDelay) * this.bloomSpeed * 1.5));
-                // Extrem weiche Ease-In-Out Funktion für seidige Animation
                 let ease = localBloom < 0.5 ? 2 * localBloom * localBloom : 1 - Math.pow(-2 * localBloom + 2, 2) / 2;
 
                 this.x = this.cx + (this.ox - this.cx) * ease;
@@ -104,213 +117,223 @@
             }
         }
 
-        function generateElegantLily() {
+        // --- GRID-BASIERTER GENERATOR FÜR PERFEKTE MATRIX-GEOMETRIE ---
+        function generateGeometricLily() {
             points = [];
             
-            // DIE 2 KLASSISCHEN SCHICHTEN EINER LILIE (3 äußere Kelchblätter, 3 innere Kronblätter)
             const layers = [
-                // Äußere Schicht (liegen etwas tiefer, biegen sich minimal mehr)
-                { count: 3, radius: 260, lift: 90, drop: 40, delay: 0.0, points: 4500, offsetAngle: 0 },
-                // Innere Schicht (stehen leicht erhaben, formen den Trichter)
-                { count: 3, radius: 250, lift: 110, drop: 20, delay: 0.2, points: 4500, offsetAngle: Math.PI / 3 }
+                { count: 6, radius: 270, lift: 70, drop: 220, delay: 0.0, rows: 45, cols: 25 },
+                { count: 6, radius: 210, lift: 130, drop: 90, delay: 0.2, rows: 35, cols: 20 },
+                { count: 6, radius: 150, lift: 170, drop: 15, delay: 0.4, rows: 25, cols: 15 }
             ];
 
             layers.forEach((layer, layerIndex) => {
                 for (let p = 0; p < layer.count; p++) {
-                    let baseAngle = (Math.PI * 2 / layer.count) * p + layer.offsetAngle;
+                    let angleOffset = (Math.random() - 0.5) * 0.2;
+                    let baseAngle = (Math.PI * 2 / layer.count) * p + (layerIndex * 0.4) + angleOffset;
+                    
+                    let indDrop = layer.drop * (0.6 + Math.random() * 0.6); 
+                    let indLift = layer.lift * (0.8 + Math.random() * 0.4);
+                    let lengthMod = 0.85 + Math.random() * 0.3;
+                    let widthMod = 0.7 + Math.random() * 0.4;
+                    let petalTwist = (Math.random() - 0.5) * 0.5; 
 
-                    for (let i = 0; i < layer.points; i++) {
-                        let t = Math.random(); // Länge (0 bis 1)
-                        let w = (Math.random() - 0.5) * 2; // Breite (-1 bis 1)
-                        let absW = Math.abs(w);
+                    // Wir bauen ein 2D-Raster auf (Zeilen x Spalten), um sie im Matrix-Modus verbinden zu können
+                    for (let r = 0; r < layer.rows; r++) {
+                        let t = r / (layer.rows - 1); 
                         
-                        // --- OFFENER ZUSTAND (Natürlich & Elegant) ---
-                        let radiusOpen = t * layer.radius;
-                        
-                        // Sanfte Trompetenform: Leicht aufwärts gerichtet (Lift), am Ende ganz sanft abfallend (Drop)
-                        let pyOpen = -Math.sin(t * Math.PI * 0.7) * layer.lift + Math.pow(t, 2.5) * layer.drop;
-                        
-                        // Blattbreite: Breit in der Mitte, spitz zulaufend
-                        let widthOpen = Math.sin(t * Math.PI) * (1 - t * 0.15) * 85;
-                        
-                        // Zarte Wellen an den Rändern, NICHT im Zentrum
-                        let ruffles = Math.sin(t * 20) * Math.sin(w * Math.PI) * (4 * t); 
-                        
-                        // DIE TIEFE MITTELFALTE (Für die 3D Struktur)
-                        // Wenn der Punkt sehr nah an der Mitte ist (w nahe 0), wird er nach "unten" gedrückt
-                        let midrib = Math.max(0, 1 - absW * 5) * 12 * Math.sin(t * Math.PI);
-                        pyOpen += midrib;
-
-                        let lateralOpen = w * widthOpen + ruffles;
-                        
-                        let ox = Math.cos(baseAngle) * radiusOpen - Math.sin(baseAngle) * lateralOpen;
-                        let oz = Math.sin(baseAngle) * radiusOpen + Math.cos(baseAngle) * lateralOpen;
-                        let oy = pyOpen;
-                        
-                        // Feines Rauschen für Volumen
-                        let nX = (Math.random() - 0.5) * 3;
-                        let nY = (Math.random() - 0.5) * 3;
-                        let nZ = (Math.random() - 0.5) * 3;
-                        ox += nX; oy += nY; oz += nZ;
-
-                        // --- GESCHLOSSENER ZUSTAND (Elegante, spiralförmige Knospe) ---
-                        let radiusClosed = t * 35 + Math.sin(t * Math.PI) * 20; 
-                        let pyClosed = -t * (240 - layerIndex * 15); 
-                        let widthClosed = Math.sin(t * Math.PI) * 25;
-                        let lateralClosed = w * widthClosed;
-                        
-                        let closedAngle = baseAngle + (t * Math.PI * 0.5); // Sanfte Spirale
-
-                        let cx = Math.cos(closedAngle) * radiusClosed - Math.sin(closedAngle) * lateralClosed;
-                        let cz = Math.sin(closedAngle) * radiusClosed + Math.cos(closedAngle) * lateralClosed;
-                        let cy = pyClosed;
-                        cx += nX*0.5; cy += nY*0.5; cz += nZ*0.5;
-
-                        // --- DER HARMONISCHE FARBVERLAUF ---
-                        let color;
-                        if (t < 0.15) {
-                            // Zentrum: Warmes, leuchtendes Gelb-Grün
-                            color = `hsla(55, 80%, 55%, 0.9)`; 
-                        } else {
-                            let hue = 335; // Nayas Pink
-                            // Sättigung nimmt nach außen leicht ab
-                            let saturation = 95 - (t * 25) - (absW * 15); 
+                        for (let c = 0; c < layer.cols; c++) {
+                            let w = (c / (layer.cols - 1) - 0.5) * 2; 
                             
-                            // Helligkeit steigt nach außen und zu den Rändern stark an (Weiß-Rosa)
-                            let lightness = 45 + (t * 40) + (absW * 25);
+                            // Minimales Chaos hinzufügen, damit das Gitter organisch wirkt
+                            let rt = Math.max(0, Math.min(1, t + (Math.random()-0.5)*0.02));
+                            let rw = Math.max(-1, Math.min(1, w + (Math.random()-0.5)*0.05));
                             
-                            // Äußere Schicht minimal dunkler für Tiefenwirkung
-                            if (layerIndex === 0) lightness -= 5;
-                            if (lightness > 92) lightness = 95; // Strahlendes Weiß an den Kanten
+                            let petalAngle = baseAngle + (rt * petalTwist);
+                            let radiusOpen = rt * layer.radius * lengthMod;
+                            let pyOpen = -Math.sin(rt * Math.PI * 0.9) * indLift + Math.pow(rt, 2.5) * indDrop;
+                            let widthOpen = Math.sin(rt * Math.PI) * (1 - rt * 0.15) * 75 * widthMod;
+                            let ruffles = Math.sin(rt * 35) * Math.sin(rw * Math.PI) * 8; 
                             
-                            color = `hsla(${hue}, ${saturation}%, ${lightness}%, 0.85)`;
-                        }
+                            if (Math.abs(rw) < 0.2) pyOpen += 12 * Math.sin(rt * Math.PI); 
 
-                        // Zarte Sommersprossen in der Mitte des Blattes
-                        if (t > 0.25 && t < 0.65 && absW < 0.45) {
-                            if (Math.random() < 0.04) {
-                                color = `hsla(335, 90%, 25%, 1)`; // Tiefdunkles Magenta
-                                oy -= 2; cy -= 1; // Liegen leicht erhaben auf dem Blatt
+                            let lateralOpen = rw * widthOpen + ruffles;
+                            
+                            let ox = Math.cos(petalAngle) * radiusOpen - Math.sin(petalAngle) * lateralOpen;
+                            let oz = Math.sin(petalAngle) * radiusOpen + Math.cos(petalAngle) * lateralOpen;
+                            let oy = pyOpen;
+                            
+                            let nX = (Math.random() - 0.5) * 3;
+                            let nY = (Math.random() - 0.5) * 3;
+                            let nZ = (Math.random() - 0.5) * 3;
+                            ox += nX; oy += nY; oz += nZ;
+
+                            let radiusClosed = rt * 40 + Math.sin(rt * Math.PI) * 25; 
+                            let pyClosed = -rt * (240 - layerIndex * 20); 
+                            let widthClosed = Math.sin(rt * Math.PI) * 25;
+                            let lateralClosed = rw * widthClosed;
+                            let closedAngle = baseAngle + (rt * Math.PI * 0.8);
+
+                            let cx = Math.cos(closedAngle) * radiusClosed - Math.sin(closedAngle) * lateralClosed;
+                            let cz = Math.sin(closedAngle) * radiusClosed + Math.cos(closedAngle) * lateralClosed;
+                            let cy = pyClosed;
+                            cx += nX*0.5; cy += nY*0.5; cz += nZ*0.5;
+
+                            // Farbverlauf (Gelbgrün -> Pink -> Weiß)
+                            let color;
+                            let absW = Math.abs(rw);
+                            if (rt < 0.2) {
+                                color = `hsla(60, 90%, ${layerIndex === 2 ? 45 : 30}%, 1)`; 
+                            } else {
+                                let saturation = 95 - (rt * 20); 
+                                let lightness = 35 + (rt * 50) + (absW * 30);
+                                if (layerIndex === 0) lightness -= 10;
+                                if (lightness > 92) lightness = 95; 
+                                color = `hsla(335, ${saturation}%, ${lightness}%, 0.85)`;
                             }
-                        }
 
-                        let individualDelay = layer.delay + (Math.random() * 0.1);
-                        points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, color, individualDelay));
+                            if (rt > 0.3 && rt < 0.75 && absW < 0.45 && Math.random() < 0.06) {
+                                color = `hsla(330, 100%, 20%, 1)`; // Sommersprossen
+                                oy -= 2.5; cy -= 1; 
+                            }
+
+                            let individualDelay = layer.delay + (Math.random() * 0.15);
+                            
+                            // Parameter für Grid-Verbindungen mitgeben
+                            points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, color, individualDelay, r, c, layer.cols, false));
+                        }
                     }
                 }
             });
 
-            // DIE 6 STAUBGEFÄßE & 1 STEMPEL (Pistil & Stamens)
-            for (let s = 0; s < 7; s++) { 
-                let isPistil = (s === 6);
-                let angle = isPistil ? 0 : (Math.PI * 2 / 6) * s + (Math.PI / 6);
+            // STAUBGEFÄßE (Pistils & Stamens)
+            for (let s = 0; s < 9; s++) { 
+                let angle = (Math.PI * 2 / 9) * s + (Math.random() - 0.5) * 0.5;
+                let lengthMod = 0.8 + Math.random() * 0.4;
                 
-                for(let i = 0; i < (isPistil ? 200 : 150); i++) {
-                    let t = Math.random();
+                let pointsInStamen = 150;
+                for(let i = 0; i < pointsInStamen; i++) {
+                    let t = i / (pointsInStamen - 1);
                     
-                    // Elegante, natürliche Biegung der Fäden
-                    let radiusOpen = isPistil ? (t * 20) : (t * 120);
-                    let pyOpen = -Math.sin(t * Math.PI * 0.8) * (isPistil ? 160 : 140);
-                    
+                    let radiusOpen = t * 160 * lengthMod;
+                    let pyOpen = -Math.sin(t * Math.PI * (0.7 + Math.random()*0.2)) * 180;
                     let ox = Math.cos(angle) * radiusOpen + (Math.random()-0.5)*3;
                     let oz = Math.sin(angle) * radiusOpen + (Math.random()-0.5)*3;
                     let oy = pyOpen + (Math.random()-0.5)*3;
 
-                    // Geschlossen in der Knospe eingeklemmt
-                    let cx = Math.cos(angle) * (t * 5);
-                    let cz = Math.sin(angle) * (t * 5);
-                    let cy = -t * (isPistil ? 170 : 150);
+                    let cx = Math.cos(angle) * (t * 8);
+                    let cz = Math.sin(angle) * (t * 8);
+                    let cy = -t * 190;
 
                     let color;
-                    if (isPistil) {
-                        color = t > 0.95 ? `hsla(130, 50%, 55%, 1)` : `hsla(70, 30%, 80%, 0.8)`;
-                        if(t > 0.95) { ox += (Math.random()-0.5)*6; oy += (Math.random()-0.5)*6; oz += (Math.random()-0.5)*6; }
+                    if (t > 0.9) {
+                        ox += (Math.random() - 0.5) * 12;
+                        oy += (Math.random() - 0.5) * 18;
+                        oz += (Math.random() - 0.5) * 12;
+                        color = `hsla(30, 100%, 50%, 1)`; 
                     } else {
-                        if (t > 0.92) {
-                            ox += (Math.random() - 0.5) * 12; // Große Pollen-Köpfe
-                            oy += (Math.random() - 0.5) * 20;
-                            oz += (Math.random() - 0.5) * 12;
-                            color = `hsla(25, 100%, 45%, 1)`; // Kräftiges Orange/Rost
-                        } else {
-                            color = `hsla(50, 40%, 80%, 0.6)`; // Feine Fäden
-                        }
+                        color = `hsla(70, 40%, 75%, 0.7)`; 
                     }
                     
-                    points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, color, 0.4));
+                    points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, color, 0.5, i, 0, 1, true));
                 }
             }
         }
 
-        generateElegantLily();
+        generateGeometricLily();
 
-        // --- TOUCH STEUERUNG ---
-        let rotX = -0.2; 
+        // --- HANDY OPTIMIERTE TOUCH STEUERUNG ---
+        let rotX = -0.3; 
         let rotY = 0;
         let vX = 0;
-        let vY = 0.003; 
+        let vY = 0.005; 
         
         let isDragging = false;
-        let prevTouchX = 0;
-        let prevTouchY = 0;
+        let prevX = 0;
+        let prevY = 0;
+        let lastTapTime = 0;
 
-        function handlePointerDown(e) {
+        function toggleWireframe() {
+            if(targetBloom > 0) {
+                isWireframe = !isWireframe;
+                hint.innerHTML = isWireframe ? "Organische Ebene wiederherstellen" : "Geometrische Transformation";
+                hint.style.opacity = '1';
+                setTimeout(() => { hint.style.opacity = '0'; }, 2000);
+            }
+        }
+
+        function getPos(e) {
+            if (e.touches && e.touches.length > 0) {
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY, touches: e.touches.length };
+            }
+            return { x: e.clientX, y: e.clientY, touches: 0 };
+        }
+
+        function pointerDown(e) {
+            let now = Date.now();
+            let pos = getPos(e);
+
+            // DOPPEL-TIPP ERKENNUNG FÜR MATRIX-MODUS
+            if (now - lastTapTime < 300 || pos.touches >= 2) {
+                toggleWireframe();
+            }
+            lastTapTime = now;
+
             if (targetBloom === 0) {
                 targetBloom = 1;
-                hint.style.opacity = '0';
-            }
-
-            isDragging = true;
-            prevTouchX = e.clientX || (e.touches && e.touches[0].clientX);
-            prevTouchY = e.clientY || (e.touches && e.touches[0].clientY);
-            vX = 0; vY = 0; 
-        }
-
-        function handlePointerMove(e) {
-            if (isDragging) {
-                let currentX = e.clientX || (e.touches && e.touches[0].clientX);
-                let currentY = e.clientY || (e.touches && e.touches[0].clientY);
-                
-                vY = (currentX - prevTouchX) * 0.005; 
-                vX = (currentY - prevTouchY) * 0.005; 
-                
-                prevTouchX = currentX;
-                prevTouchY = currentY;
-            }
-        }
-
-        function handlePointerUp() {
-            isDragging = false;
-        }
-
-        window.addEventListener('pointerdown', handlePointerDown);
-        window.addEventListener('pointermove', handlePointerMove);
-        window.addEventListener('pointerup', handlePointerUp);
-        window.addEventListener('touchstart', handlePointerDown, {passive: true});
-        window.addEventListener('touchmove', handlePointerMove, {passive: true});
-        window.addEventListener('touchend', handlePointerUp);
-
-        // --- RENDER LOOP ---
-        function animate() {
-            ctx.fillStyle = 'rgba(2, 1, 2, 0.5)'; // Sorgt für wunderschönen Motion-Blur und weiches Leuchten
-            ctx.fillRect(0, 0, width, height);
-
-            if (currentBloom < targetBloom) {
-                currentBloom += 0.004; 
-            }
-            if (currentBloom > 0.95 && !isFullyBloomed) {
-                isFullyBloomed = true;
-                hint.innerHTML = "Wische, um die Details zu betrachten";
+                hint.innerHTML = "Tippe doppelt für die Matrix";
                 hint.style.opacity = '1';
                 hint.style.animation = 'none'; 
             }
 
+            isDragging = true;
+            prevX = pos.x;
+            prevY = pos.y;
+            vX = 0; vY = 0; 
+        }
+
+        function pointerMove(e) {
+            if (isDragging) {
+                let pos = getPos(e);
+                vY = (pos.x - prevX) * 0.005; 
+                vX = (pos.y - prevY) * 0.005; 
+                prevX = pos.x;
+                prevY = pos.y;
+            }
+        }
+
+        function pointerUp(e) {
+            isDragging = false;
+        }
+
+        // Event-Binding, das `e.preventDefault()` auf Handys nutzt, um Scrollen zu killen
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); pointerDown(e); }, {passive: false});
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); pointerMove(e); }, {passive: false});
+        canvas.addEventListener('touchend', (e) => { e.preventDefault(); pointerUp(e); }, {passive: false});
+        
+        // PC Fallbacks
+        canvas.addEventListener('mousedown', pointerDown);
+        window.addEventListener('mousemove', pointerMove);
+        window.addEventListener('mouseup', pointerUp);
+        canvas.addEventListener('dblclick', toggleWireframe);
+
+        // --- RENDER LOOP ---
+        function animate() {
+            ctx.fillStyle = 'rgba(2, 1, 2, 0.4)';
+            ctx.fillRect(0, 0, width, height);
+
+            if (currentBloom < targetBloom) { currentBloom += 0.004; }
+            
+            // Smoother Übergang zum Drahtgitter
+            if (isWireframe && wireframeCurrent < 1) wireframeCurrent += 0.05;
+            if (!isWireframe && wireframeCurrent > 0) wireframeCurrent -= 0.05;
+
             rotY += vY;
             rotX += vX;
-            rotX = Math.max(-1.0, Math.min(1.0, rotX)); // Kamera sanft blockieren
+            rotX = Math.max(-1.2, Math.min(1.2, rotX));
 
             if (!isDragging) {
-                vY *= 0.94;
-                vX *= 0.94;
+                vY *= 0.95; vX *= 0.95;
                 if (Math.abs(vY) < 0.0005) vY += 0.002; 
             }
 
@@ -318,35 +341,59 @@
 
             const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
             const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-
             const centerX = width / 2;
-            const centerY = height / 2 + 50; 
+            const centerY = height / 2 + 60; 
 
+            // 1. PUNKTE BERECHNEN
             for (let i = 0; i < points.length; i++) {
                 let p = points[i];
                 p.update(currentBloom);
 
-                let x = p.x;
-                let y = p.y;
-                let z = p.z;
-
-                // 3D Matrix
-                let y1 = y * cosX - z * sinX;
-                let z1 = y * sinX + z * cosX;
-                let x2 = x * cosY + z1 * sinY;
-                let z2 = -x * sinY + z1 * cosY;
-                let y2 = y1;
-
-                let scale = fov / (fov + z2 + 350); 
+                let y1 = p.y * cosX - p.z * sinX;
+                let z1 = p.y * sinX + p.z * cosX;
+                let x2 = p.x * cosY + z1 * sinY;
+                let z2 = -p.x * sinY + z1 * cosY;
                 
-                if (scale > 0) {
-                    let drawX = centerX + x2 * scale;
-                    let drawY = centerY + y2 * scale;
-                    
-                    ctx.fillStyle = p.color;
-                    let size = Math.max(0.6, 1.8 * scale); 
-                    ctx.fillRect(drawX, drawY, size, size);
+                p.scale = fov / (fov + z2 + 350); 
+                p.drawX = centerX + x2 * p.scale;
+                p.drawY = centerY + y1 * p.scale;
+            }
+
+            // 2. ZEICHNE ORGANISCHE PUNKTE (Faden aus im Matrix-Modus)
+            if (wireframeCurrent < 1) {
+                ctx.globalAlpha = 1 - wireframeCurrent;
+                for (let i = 0; i < points.length; i++) {
+                    let p = points[i];
+                    if (p.scale > 0) {
+                        ctx.fillStyle = p.color;
+                        let size = Math.max(0.6, 1.6 * p.scale); 
+                        ctx.fillRect(p.drawX, p.drawY, size, size);
+                    }
                 }
+                ctx.globalAlpha = 1;
+            }
+
+            // 3. ZEICHNE DAS GOLDENE DRAHTGITTER (Fade In)
+            if (wireframeCurrent > 0) {
+                ctx.beginPath();
+                for (let i = 0; i < points.length; i++) {
+                    let p = points[i];
+                    if (p.scale > 0) {
+                        // Verbinde Punkt mit seinem linken Nachbarn
+                        if (p.col > 0 && points[i-1]) {
+                            ctx.moveTo(p.drawX, p.drawY);
+                            ctx.lineTo(points[i-1].drawX, points[i-1].drawY);
+                        }
+                        // Verbinde Punkt mit seinem oberen Nachbarn
+                        if (p.row > 0 && !p.isStamen && points[i-p.cols]) {
+                            ctx.moveTo(p.drawX, p.drawY);
+                            ctx.lineTo(points[i-p.cols].drawX, points[i-p.cols].drawY);
+                        }
+                    }
+                }
+                ctx.strokeStyle = `rgba(255, 218, 117, ${wireframeCurrent * 0.4})`; // Leuchtendes Gold
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
             }
 
             ctx.globalCompositeOperation = 'source-over';
