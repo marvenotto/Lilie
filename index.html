@@ -10,8 +10,8 @@
             background-color: #020101; 
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            /* Zwingt Handys dazu, Touch-Gesten exklusiv für das Canvas zu nutzen */
-            touch-action: none; 
+            /* Zwingt Handys dazu, Wischgesten komplett der Blume zu überlassen */
+            touch-action: none;
             overscroll-behavior: none;
             user-select: none;
             -webkit-user-select: none;
@@ -56,7 +56,7 @@
         <div class="sub-greeting">14. September ✨ Von Marven</div>
     </div>
     
-    <div class="interaction-hint" id="hint">Tippe 1x zum Entfalten • Tippe 2x für einen Wechsel</div>
+    <div class="interaction-hint" id="hint">Tippe 1x zum Entfalten • Doppeltipp für Transformation</div>
 
     <canvas id="canvas"></canvas>
 
@@ -80,23 +80,26 @@
 
         const fov = 650; 
         let points = [];
+        
+        // Exakte Animations-Kontrolle
         let targetBloom = 0; 
         let currentBloom = 0;
         let isFullyBloomed = false;
         let isReblooming = false;
 
-        // --- DIE HARMONISCHEN FARB-PALETTEN (Basierend auf dem Foto) ---
+        // --- HARMONISCHE, ANALOGE FARBPALETTEN (Pastell & Tief) ---
+        // Hier gibt es keine harten Kontraste mehr, nur seidige Verläufe
         const palettes = [
-            // 0: Burgunder-Zentrum mit leuchtend gelben Rändern (wie vorne links)
-            { center: {h: 350, s: 90, l: 20}, edge: {h: 50, s: 100, l: 50}, speckle: {h: 350, s: 100, l: 15} },
-            // 1: Reinweiß mit dunkelroten Punkten (wie rechts)
-            { center: {h: 120, s: 30, l: 80}, edge: {h: 0, s: 0, l: 95}, speckle: {h: 350, s: 90, l: 30} },
-            // 2: Warmes Rosa/Pink mit Magentapunkten (wie rechts unten)
-            { center: {h: 335, s: 80, l: 50}, edge: {h: 340, s: 60, l: 85}, speckle: {h: 330, s: 90, l: 25} },
-            // 3: Knalliges Orange mit braunen Punkten (wie links)
-            { center: {h: 20, s: 90, l: 50}, edge: {h: 30, s: 100, l: 60}, speckle: {h: 10, s: 90, l: 20} },
-            // 4: Sonnengelb mit dunklen Punkten (wie oben rechts)
-            { center: {h: 50, s: 90, l: 40}, edge: {h: 60, s: 100, l: 60}, speckle: {h: 20, s: 90, l: 20} }
+            // 1. Zartes Rosa & warmer Pfirsich
+            { center: {h: 20, s: 70, l: 65}, edge: {h: 345, s: 50, l: 85}, speckle: {h: 345, s: 60, l: 45} },
+            // 2. Tiefe Himbeere zu hellem Rosa
+            { center: {h: 330, s: 70, l: 55}, edge: {h: 340, s: 40, l: 88}, speckle: {h: 330, s: 70, l: 35} },
+            // 3. Mystischer Flieder & zarter Lavendel
+            { center: {h: 290, s: 45, l: 65}, edge: {h: 275, s: 30, l: 85}, speckle: {h: 280, s: 40, l: 45} },
+            // 4. Warmes Rosé & Creme-Weiß
+            { center: {h: 345, s: 60, l: 60}, edge: {h: 40, s: 30, l: 90}, speckle: {h: 345, s: 50, l: 40} },
+            // 5. Sanftes Korall & Lachsrosa
+            { center: {h: 355, s: 65, l: 65}, edge: {h: 15, s: 60, l: 85}, speckle: {h: 355, s: 60, l: 45} }
         ];
         let currentPaletteIndex = 0;
 
@@ -133,14 +136,15 @@
             points = [];
             const theme = palettes[currentPaletteIndex];
             
-            // Jede Blume wird durch organische Zufallswerte einzigartig!
-            let randomLiftMod = 0.8 + Math.random() * 0.4;
-            let randomDropMod = 0.7 + Math.random() * 0.6;
-            let randomTwist = (Math.random() - 0.5) * 0.3;
+            // ORGANISCHE EINZIGARTIGKEIT: Jede neue Blume formt sich leicht anders
+            let randomLiftMod = 0.85 + Math.random() * 0.3;
+            let randomDropMod = 0.6 + Math.random() * 0.6;
+            let randomTwist = (Math.random() - 0.5) * 0.35;
+            let petalLengthMod = 0.9 + Math.random() * 0.2;
 
             const layers = [
-                { count: 3, radius: 260, lift: 90 * randomLiftMod, drop: 50 * randomDropMod, delay: 0.0, points: 4500, offsetAngle: 0 },
-                { count: 3, radius: 250, lift: 110 * randomLiftMod, drop: 30 * randomDropMod, delay: 0.2, points: 4500, offsetAngle: Math.PI / 3 }
+                { count: 3, radius: 260 * petalLengthMod, lift: 90 * randomLiftMod, drop: 45 * randomDropMod, delay: 0.0, points: 4500, offsetAngle: 0 },
+                { count: 3, radius: 250 * petalLengthMod, lift: 115 * randomLiftMod, drop: 25 * randomDropMod, delay: 0.15, points: 4500, offsetAngle: Math.PI / 3 }
             ];
 
             layers.forEach((layer, layerIndex) => {
@@ -156,7 +160,7 @@
                         let pyOpen = -Math.sin(t * Math.PI * 0.7) * layer.lift + Math.pow(t, 2.5) * layer.drop;
                         
                         let widthOpen = Math.sin(t * Math.PI) * (1 - t * 0.15) * 85;
-                        let ruffles = Math.sin(t * 20) * Math.sin(w * Math.PI) * (5 * t); 
+                        let ruffles = Math.sin(t * 25) * Math.sin(w * Math.PI) * (4 * t); 
                         
                         let midrib = Math.max(0, 1 - absW * 5) * 12 * Math.sin(t * Math.PI);
                         pyOpen += midrib;
@@ -167,9 +171,9 @@
                         let oz = Math.sin(baseAngle) * radiusOpen + Math.cos(baseAngle) * lateralOpen;
                         let oy = pyOpen;
                         
-                        let nX = (Math.random() - 0.5) * 3;
-                        let nY = (Math.random() - 0.5) * 3;
-                        let nZ = (Math.random() - 0.5) * 3;
+                        let nX = (Math.random() - 0.5) * 3.5;
+                        let nY = (Math.random() - 0.5) * 3.5;
+                        let nZ = (Math.random() - 0.5) * 3.5;
                         ox += nX; oy += nY; oz += nZ;
 
                         let radiusClosed = t * 35 + Math.sin(t * Math.PI) * 20; 
@@ -184,20 +188,19 @@
                         let cy = pyClosed;
                         cx += nX*0.5; cy += nY*0.5; cz += nZ*0.5;
 
-                        // --- DER NEUE, FLIEßENDE FARBVERLAUF ---
+                        // --- HARMONISCHE FARBMISCHUNG ---
                         let color;
-                        // Mischen der Farbe von Zentrum (t=0) zu Rand (t=1 & absW=1)
+                        // Fließender Übergang von Trichter zu Rand
                         let colorBlend = Math.min(1, t * 0.8 + absW * 0.4); 
                         let c = lerpColor(theme.center, theme.edge, colorBlend);
                         
-                        // Äußere Blätter minimal abdunkeln für Tiefe
-                        if (layerIndex === 0) c.l -= 5;
+                        if (layerIndex === 0) c.l -= 4; // Äußere Blätter minimal dunkler
                         color = `hsla(${c.h}, ${c.s}%, ${c.l}%, 0.85)`;
 
-                        // Sommersprossen aus dem Farbthema!
+                        // Organisch eingebettete Sommersprossen
                         if (t > 0.25 && t < 0.65 && absW < 0.45) {
-                            if (Math.random() < 0.05) {
-                                color = `hsla(${theme.speckle.h}, ${theme.speckle.s}%, ${theme.speckle.l}%, 1)`;
+                            if (Math.random() < 0.04) {
+                                color = `hsla(${theme.speckle.h}, ${theme.speckle.s}%, ${theme.speckle.l}%, 0.95)`;
                                 oy -= 2; cy -= 1; 
                             }
                         }
@@ -229,16 +232,18 @@
 
                     let color;
                     if (isPistil) {
-                        color = t > 0.95 ? `hsla(130, 50%, 55%, 1)` : `hsla(70, 30%, 80%, 0.8)`;
-                        if(t > 0.95) { ox += (Math.random()-0.5)*6; oy += (Math.random()-0.5)*6; oz += (Math.random()-0.5)*6; }
+                        // Zarter Stempel
+                        color = t > 0.95 ? `hsla(110, 30%, 65%, 0.9)` : `hsla(70, 20%, 80%, 0.7)`;
+                        if(t > 0.95) { ox += (Math.random()-0.5)*5; oy += (Math.random()-0.5)*5; oz += (Math.random()-0.5)*5; }
                     } else {
                         if (t > 0.92) {
+                            // Harmonische Pollen, nicht zu knallig
                             ox += (Math.random() - 0.5) * 12; 
-                            oy += (Math.random() - 0.5) * 20;
+                            oy += (Math.random() - 0.5) * 18;
                             oz += (Math.random() - 0.5) * 12;
-                            color = `hsla(25, 100%, 45%, 1)`; // Kräftiges Orange/Rost
+                            color = `hsla(30, 80%, 55%, 1)`; 
                         } else {
-                            color = `hsla(50, 40%, 80%, 0.6)`; 
+                            color = `hsla(50, 30%, 85%, 0.5)`; 
                         }
                     }
                     
@@ -249,7 +254,7 @@
 
         generateElegantLily();
 
-        // --- HANDY OPTIMIERTE TOUCH STEUERUNG & DOPPELKLICK ---
+        // --- HANDY OPTIMIERTE STEUERUNG ---
         let rotX = -0.2; 
         let rotY = 0;
         let vX = 0;
@@ -261,19 +266,12 @@
         let lastTapTime = 0;
 
         function triggerRebloom() {
-            if (isReblooming) return;
-            isReblooming = true;
-            targetBloom = 0; // Blüte schließt sich
-            hint.style.opacity = '0';
+            // Verhindert Störungen, wenn sie schon schließt/öffnet
+            if (isReblooming || currentBloom < 0.8) return; 
             
-            setTimeout(() => {
-                // Wenn geschlossen, wechsle Farbe und Form
-                currentPaletteIndex = (currentPaletteIndex + 1) % palettes.length;
-                generateElegantLily();
-                targetBloom = 1; // Blüte öffnet sich wieder
-                
-                setTimeout(() => { isReblooming = false; }, 1500);
-            }, 1200); // Wartet bis sie komplett geschlossen ist
+            isReblooming = true;
+            targetBloom = 0; // Trigger: Schließen
+            hint.style.opacity = '0';
         }
 
         function getPos(e) {
@@ -287,12 +285,15 @@
             let now = Date.now();
             let pos = getPos(e);
 
-            // DOPPELKLICK ERKENNUNG
-            if (now - lastTapTime < 300) {
+            // ZUVERLÄSSIGER DOPPEL-TIPP
+            if (now - lastTapTime < 400) { // 400ms Fenster
                 triggerRebloom();
+                lastTapTime = 0; // Reset
+                return; 
             }
             lastTapTime = now;
 
+            // Erstes Öffnen
             if (targetBloom === 0 && !isReblooming) {
                 targetBloom = 1;
                 hint.style.opacity = '0';
@@ -318,10 +319,9 @@
             isDragging = false;
         }
 
-        // Native Gesten komplett blockieren für flüssiges 3D Wischen
         canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handlePointerDown(e); }, {passive: false});
         canvas.addEventListener('touchmove', (e) => { e.preventDefault(); handlePointerMove(e); }, {passive: false});
-        canvas.addEventListener('touchend', (e) => { e.preventDefault(); handlePointerUp(e); }, {passive: false});
+        canvas.addEventListener('touchend', (e) => { e.preventDefault(); handlePointerUp(); }, {passive: false});
         
         canvas.addEventListener('mousedown', handlePointerDown);
         window.addEventListener('mousemove', handlePointerMove);
@@ -332,11 +332,26 @@
             ctx.fillStyle = 'rgba(2, 1, 2, 0.4)'; 
             ctx.fillRect(0, 0, width, height);
 
-            // Blühen und Schließen steuern
-            if (currentBloom < targetBloom) currentBloom += 0.005; 
-            if (currentBloom > targetBloom) currentBloom -= 0.005; 
+            // EXAKTES TIMING FÜR DAS AUF- UND ZUGEHEN
+            if (currentBloom < targetBloom) {
+                currentBloom += 0.005; // Weiches Öffnen
+            } else if (currentBloom > targetBloom) {
+                currentBloom -= 0.012; // Schnelles Schließen (ca. 1.2 Sekunden)
+            }
 
-            if (currentBloom > 0.95 && !isFullyBloomed && !isReblooming) {
+            // Sicherstellen, dass die Werte nicht überlaufen
+            if (currentBloom < 0) currentBloom = 0;
+            if (currentBloom > 1) currentBloom = 1;
+
+            // Wenn komplett geschlossen, generiere die neue Blume!
+            if (isReblooming && currentBloom === 0) {
+                currentPaletteIndex = (currentPaletteIndex + 1) % palettes.length;
+                generateElegantLily();
+                targetBloom = 1; // Öffne die neue Blume sofort
+                setTimeout(() => { isReblooming = false; }, 500); // Cooldown
+            }
+
+            if (currentBloom === 1 && !isFullyBloomed && !isReblooming) {
                 isFullyBloomed = true;
                 hint.innerHTML = "Wische, um sie zu betrachten";
                 hint.style.opacity = '1';
@@ -353,7 +368,7 @@
                 if (Math.abs(vY) < 0.0005) vY += 0.002; 
             }
 
-            // ORGANISCHES "ATMEN" (Pulsiert ganz leicht durch Sinuswellen)
+            // ORGANISCHES ATMEN (Minimales Wiegen im Wind)
             let breathX = Math.sin(Date.now() * 0.001) * 0.02;
             let breathY = Math.cos(Date.now() * 0.0008) * 0.02;
 
