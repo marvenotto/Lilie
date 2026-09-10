@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Für Naya - Lily Bouquet</title>
+    <title>Für Naya - The Awakening</title>
     <style>
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: #020101; 
+            background-color: #020102; 
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             touch-action: none;
@@ -38,7 +38,7 @@
             opacity: 0;
             transform: translateY(10px);
             animation: fadeUp 3s ease forwards;
-            animation-delay: 2s; 
+            animation-delay: 1s; 
         }
         .sub-greeting {
             color: rgba(255, 255, 255, 0.5); 
@@ -48,29 +48,28 @@
             text-transform: uppercase;
             opacity: 0;
             animation: fadeUp 3s ease forwards;
-            animation-delay: 3s;
+            animation-delay: 2s;
         }
         .interaction-hint {
             position: absolute;
-            bottom: 8%;
+            bottom: 12%;
             width: 100%;
             text-align: center;
-            color: rgba(255, 255, 255, 0.3);
-            font-size: 10px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
             letter-spacing: 4px;
             text-transform: uppercase;
             pointer-events: none;
-            opacity: 0;
-            animation: pulseHint 4s infinite;
-            animation-delay: 4.5s;
+            transition: opacity 1s ease;
+            animation: pulseHint 3s infinite;
         }
         @keyframes fadeUp {
             to { opacity: 1; transform: translateY(0); }
         }
         @keyframes pulseHint {
-            0% { opacity: 0; }
-            50% { opacity: 1; }
-            100% { opacity: 0; }
+            0% { text-shadow: 0 0 10px rgba(255,255,255,0); }
+            50% { text-shadow: 0 0 20px rgba(255,255,255,0.8); }
+            100% { text-shadow: 0 0 10px rgba(255,255,255,0); }
         }
     </style>
 </head>
@@ -81,13 +80,14 @@
         <div class="sub-greeting">14. September ✨ Von Marven</div>
     </div>
     
-    <div class="interaction-hint">Wische, um den Strauß zu betrachten</div>
+    <div class="interaction-hint" id="hint">Tippe, um die Blüte zu wecken</div>
 
     <canvas id="canvas"></canvas>
 
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+        const hint = document.getElementById('hint');
 
         let dpr = Math.min(window.devicePixelRatio || 1, 2);
         let width, height;
@@ -102,210 +102,175 @@
         window.addEventListener('resize', resize);
         resize();
 
-        const fov = 650; 
+        const fov = 600; 
         let points = [];
-        let globalProgress = 0;
+        let pollenParticles = [];
+        
+        // Animations-Status
+        let targetBloom = 0; // 0 = Geschlossen, 1 = Offen
+        let currentBloom = 0;
+        let isFullyBloomed = false;
 
-        function rotate3D(x, y, z, rotX, rotY, rotZ) {
-            let y1 = y * Math.cos(rotX) - z * Math.sin(rotX);
-            let z1 = y * Math.sin(rotX) + z * Math.cos(rotX);
-            let x1 = x;
-            
-            let x2 = x1 * Math.cos(rotY) - z1 * Math.sin(rotY);
-            let z2 = x1 * Math.sin(rotY) + z1 * Math.cos(rotY);
-            let y2 = y1;
-            
-            let x3 = x2 * Math.cos(rotZ) - y2 * Math.sin(rotZ);
-            let y3 = x2 * Math.sin(rotZ) + y2 * Math.cos(rotZ);
-            let z3 = z2;
-            
-            return { x: x3, y: y3, z: z3 };
+        // --- 3D PARTIKEL MIT ZWEI ZUSTÄNDEN (Knospe & Blüte) ---
+        class AnimatedPoint {
+            constructor(cx, cy, cz, ox, oy, oz, color, bloomDelay) {
+                // Position als geschlossene Knospe
+                this.cx = cx; this.cy = cy; this.cz = cz;
+                // Position als offene Blüte
+                this.ox = ox; this.oy = oy; this.oz = oz;
+                
+                // Aktuelle Position
+                this.x = cx; this.y = cy; this.z = cz;
+                
+                this.color = color;
+                
+                // Jedes Blatt und jeder Punkt blüht leicht verzögert auf für organische Optik
+                this.bloomDelay = bloomDelay; 
+            }
+
+            update(globalBloom) {
+                // Berechne individuellen Bloom-Status
+                let localBloom = Math.max(0, Math.min(1, (globalBloom - this.bloomDelay) * 1.5));
+                
+                // Sanfte S-Kurve (Ease In Out) für das Erblühen
+                let ease = localBloom < 0.5 
+                    ? 2 * localBloom * localBloom 
+                    : 1 - Math.pow(-2 * localBloom + 2, 2) / 2;
+
+                this.x = this.cx + (this.ox - this.cx) * ease;
+                this.y = this.cy + (this.oy - this.cy) * ease;
+                this.z = this.cz + (this.oz - this.cz) * ease;
+            }
         }
 
-        // --- GENERIERT EINE EINZELNE LILIE ---
-        function addLilyBloom(offsetX, offsetY, offsetZ, rotX, rotY, rotZ, scale, baseHue) {
+        // --- GENERATOR FÜR DIE HOCHKOMPLEXE LILIE ---
+        function generateMorphingLily() {
+            points = [];
+            
+            // 1. DIE 6 GIGANTISCHEN BLÜTENBLÄTTER
             for (let p = 0; p < 6; p++) {
                 let isInner = p % 2 === 0;
                 let petalAngle = (Math.PI * 2 / 6) * p;
                 
-                // 350 Punkte pro Blatt (Perfekte Balance für einen ganzen Strauß)
-                for (let i = 0; i < 350; i++) {
+                // 3000 Punkte pro Blatt (Extremes Impasto-Volumen!)
+                for (let i = 0; i < 3000; i++) {
                     let t = Math.random(); 
                     let w = (Math.random() - 0.5) * 2; 
                     
-                    let radius = t * 180 * scale;
-                    let py = (-Math.sin(t * Math.PI * 0.8) * 120 + Math.pow(t, 3) * 80) * scale;
+                    // --- ZUSTAND 1: DIE OFFENE BLÜTE (ox, oy, oz) ---
+                    let radiusOpen = t * 240;
+                    let pyOpen = -Math.sin(t * Math.PI * 0.9) * 130 + Math.pow(t, 3) * 120;
                     
                     if (isInner) {
-                        radius *= 0.9;
-                        py -= 20 * t * scale; 
+                        radiusOpen *= 0.9;
+                        pyOpen -= 30 * t; 
                     }
-
-                    let petalWidth = Math.sin(t * Math.PI) * (1 - t * 0.2) * 55 * scale;
-                    let lateral = w * petalWidth;
+                    let widthOpen = Math.sin(t * Math.PI) * (1 - t * 0.3) * 75;
+                    let lateralOpen = w * widthOpen;
                     
-                    let px = Math.cos(petalAngle) * radius - Math.sin(petalAngle) * lateral;
-                    let pz = Math.sin(petalAngle) * radius + Math.cos(petalAngle) * lateral;
+                    let ox = Math.cos(petalAngle) * radiusOpen - Math.sin(petalAngle) * lateralOpen;
+                    let oz = Math.sin(petalAngle) * radiusOpen + Math.cos(petalAngle) * lateralOpen;
+                    let oy = pyOpen;
                     
-                    px += (Math.random() - 0.5) * 2;
-                    py += (Math.random() - 0.5) * 2 + (isInner ? -3 : 3);
-                    pz += (Math.random() - 0.5) * 2;
+                    // Organisches Rauschen
+                    let noiseX = (Math.random() - 0.5) * 3;
+                    let noiseY = (Math.random() - 0.5) * 3;
+                    let noiseZ = (Math.random() - 0.5) * 3;
+                    ox += noiseX; oy += noiseY; oz += noiseZ;
 
+                    // --- ZUSTAND 2: DIE GESCHLOSSENE KNOSPE (cx, cy, cz) ---
+                    let radiusClosed = t * 30 + Math.sin(t * Math.PI) * 15; // Sehr eng, tropfenförmig
+                    let pyClosed = -t * 180; // Zeigt steil nach oben
+                    let widthClosed = Math.sin(t * Math.PI) * 15;
+                    let lateralClosed = w * widthClosed;
+                    
+                    // Die Blätter der Knospe drehen sich spiralförmig ineinander
+                    let twist = t * Math.PI * 0.5;
+                    let closedAngle = petalAngle + twist;
+
+                    let cx = Math.cos(closedAngle) * radiusClosed - Math.sin(closedAngle) * lateralClosed;
+                    let cz = Math.sin(closedAngle) * radiusClosed + Math.cos(closedAngle) * lateralClosed;
+                    let cy = pyClosed;
+                    cx += noiseX * 0.5; cy += noiseY * 0.5; cz += noiseZ * 0.5;
+
+                    // --- FARBVERLAUF (Violett -> Magenta -> Gold) ---
                     let color;
                     let absW = Math.abs(w);
-                    if (t < 0.15) {
-                        color = `hsla(80, 60%, 50%, 0.9)`; 
-                    } else if (absW > 0.7 && t > 0.3) {
-                        color = `hsla(${baseHue}, 20%, 90%, 0.8)`; 
+                    if (t < 0.2) {
+                        color = `hsla(260, 80%, 40%, 0.9)`; // Tiefes Mystisches Violett im Zentrum
+                    } else if (t > 0.85) {
+                        color = `hsla(35, 100%, 65%, 0.9)`; // Gold/Orange an den Spitzen
                     } else {
-                        let saturation = 70 + (t * 20);
-                        let lightness = 50 + (absW * 15); 
-                        color = `hsla(${baseHue}, ${saturation}%, ${lightness}%, 0.85)`;
+                        let hue = 260 + (t * 80); // Faded von Violett(260) zu Pink/Magenta(340)
+                        let lightness = 40 + (absW * 20) + (t * 20); 
+                        color = `hsla(${hue}, 90%, ${lightness}%, 0.85)`;
                     }
-                    
-                    if (t > 0.2 && t < 0.7 && absW < 0.6 && Math.random() < 0.05) {
-                        color = `hsla(${baseHue - 15}, 90%, 25%, 1)`;
-                        py -= 2; 
+
+                    // Sommersprossen (Dunkelviolett)
+                    if (t > 0.3 && t < 0.7 && absW < 0.5 && Math.random() < 0.03) {
+                        color = `hsla(280, 90%, 15%, 1)`;
+                        oy -= 2; cy -= 1;
                     }
-                    
-                    let rotated = rotate3D(px, py, pz, rotX, rotY, rotZ);
-                    points.push(new Point3D(rotated.x + offsetX, rotated.y + offsetY, rotated.z + offsetZ, color));
+
+                    // Äußere Blätter blühen zuerst auf, innere folgen leicht verzögert
+                    let delay = isInner ? 0.2 : 0.0;
+                    points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, color, delay));
                 }
             }
 
+            // 2. DIE STAUBGEFÄßE (Schießen beim Öffnen hervor)
             for (let s = 0; s < 7; s++) {
-                let isPistil = (s === 6); 
-                let angle = isPistil ? 0 : (Math.PI * 2 / 6) * s + (Math.PI / 6);
+                let angle = (Math.PI * 2 / 7) * s;
                 
-                for(let i = 0; i < (isPistil ? 80 : 50); i++) {
+                for(let i = 0; i < 200; i++) {
                     let t = Math.random();
-                    let radius = isPistil ? ((Math.random()-0.5)*2) : (t * 35 * scale);
-                    let py = -t * (isPistil ? 130 : 110) * scale;
                     
-                    let px = Math.cos(angle) * radius + (Math.random() - 0.5) * 2;
-                    let pz = Math.sin(angle) * radius + (Math.random() - 0.5) * 2;
-                    
-                    let color;
-                    if (isPistil) {
-                        color = t > 0.95 ? `hsla(140, 50%, 60%, 1)` : `hsla(70, 40%, 80%, 0.8)`;
-                        if (t > 0.95) { px *= 3; pz *= 3; }
-                    } else {
-                        if (t > 0.9) {
-                            px += (Math.random() - 0.5) * 5;
-                            py += (Math.random() - 0.5) * 10; 
-                            pz += (Math.random() - 0.5) * 5;
-                            color = `hsla(25, 90%, 45%, 1)`; 
-                        } else {
-                            color = `hsla(40, 50%, 85%, 0.6)`;
-                        }
-                    }
+                    // Offen
+                    let radiusOpen = t * 150;
+                    let pyOpen = -Math.sin(t * Math.PI * 0.7) * 160;
+                    let ox = Math.cos(angle) * radiusOpen + (Math.random()-0.5)*3;
+                    let oz = Math.sin(angle) * radiusOpen + (Math.random()-0.5)*3;
+                    let oy = pyOpen + (Math.random()-0.5)*3;
 
-                    let rotated = rotate3D(px, py, pz, rotX, rotY, rotZ);
-                    points.push(new Point3D(rotated.x + offsetX, rotated.y + offsetY, rotated.z + offsetZ, color));
+                    // Geschlossen (Eingeklemmt im Zentrum)
+                    let cx = Math.cos(angle) * (t * 5);
+                    let cz = Math.sin(angle) * (t * 5);
+                    let cy = -t * 150;
+
+                    let color = t > 0.92 ? `hsla(45, 100%, 60%, 1)` : `hsla(320, 60%, 70%, 0.7)`;
+                    
+                    // Starten ganz am Ende der Animation
+                    points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, color, 0.4));
                 }
             }
         }
 
-        // --- DER BLUMENSTRAUß (7 LILIEN IN KUPPELFORM) ---
-        function generateBouquet() {
-            points = [];
-            
-            // 1. Die majestätische Hauptblüte (Zentrum, guckt nach oben)
-            addLilyBloom(0, -90, 0, 0.3, 0, 0, 1.0, 335);
-            
-            // Stiel für Hauptblüte
-            for(let j=0; j<400; j++) {
-                let t = Math.random();
-                let py = -90 * (1-t) + 400 * t;
-                points.push(new Point3D((Math.random()-0.5)*3, py, (Math.random()-0.5)*3, `hsla(120, 50%, 25%, 0.8)`));
-            }
+        generateMorphingLily();
 
-            // 2. Ein Ring aus 6 Lilien, die sternförmig nach außen gucken
-            let ringCount = 6;
-            let bouquetRadius = 130; // Wie weit die Blüten vom Zentrum entfernt sind
-            let ringHeight = 40;     // Etwas tiefer als die Hauptblüte
-
-            for(let i = 0; i < ringCount; i++) {
-                let angle = (Math.PI * 2 / ringCount) * i;
-                
-                let oX = Math.cos(angle) * bouquetRadius;
-                let oZ = Math.sin(angle) * bouquetRadius;
-                
-                // Kippt die Blüte nach außen (Rotation X) und dreht sie in die richtige Himmelsrichtung (Rotation Y)
-                let rY = -angle + Math.PI/2; 
-                let rX = 0.9; // Neigungswinkel nach außen
-                
-                // Variierende Pink-Töne (325 bis 355) für einen lebendigen Strauß
-                let hue = 325 + (i * 5); 
-                
-                addLilyBloom(oX, ringHeight, oZ, rX, rY, 0, 0.8, hue);
-                
-                // Stiele, die alle elegant unten in der Mitte (0, 400, 0) zusammenlaufen
-                for(let j = 0; j < 300; j++) {
-                    let t = Math.random();
-                    // Interpolation vom Startpunkt der Blüte bis zum Bindepunkt des Straußes
-                    let px = oX * (1-t) + (Math.random()-0.5)*3;
-                    let pz = oZ * (1-t) + (Math.random()-0.5)*3;
-                    let py = ringHeight * (1-t) + 400 * t;
-                    points.push(new Point3D(px, py, pz, `hsla(120, 50%, 25%, 0.8)`));
-                }
-            }
-        }
-
-        class Point3D {
-            constructor(tx, ty, tz, color) {
-                this.tx = tx; 
-                this.ty = ty; 
-                this.tz = tz;
-                
-                let randomRadius = 100 + Math.random() * 600;
-                let randomAngle1 = Math.random() * Math.PI * 2;
-                let randomAngle2 = Math.random() * Math.PI * 2;
-                this.x = Math.cos(randomAngle1) * Math.sin(randomAngle2) * randomRadius;
-                this.y = Math.cos(randomAngle2) * randomRadius;
-                this.z = Math.sin(randomAngle1) * Math.sin(randomAngle2) * randomRadius;
-                
-                this.color = color;
-                
-                this.speed = 0.015 + Math.random() * 0.025;
-                this.delay = Math.random() * 1.5; 
-            }
-
-            update(progress) {
-                if (progress > this.delay) {
-                    let p = Math.min(1, (progress - this.delay) * 1.2);
-                    let ease = 1 - Math.pow(1 - p, 4); 
-                    
-                    this.currentX = this.x + (this.tx - this.x) * ease;
-                    this.currentY = this.y + (this.ty - this.y) * ease;
-                    this.currentZ = this.z + (this.tz - this.z) * ease;
-                } else {
-                    this.currentX = this.x;
-                    this.currentY = this.y;
-                    this.currentZ = this.z;
-                }
-            }
-        }
-
-        generateBouquet();
-
+        // --- 3D TOUCH-STEUERUNG ---
         let rotX = -0.2; 
         let rotY = 0;
         let vX = 0;
-        let vY = 0.003; 
+        let vY = 0.005; // Etwas schnellere Drehung am Anfang
         
         let isDragging = false;
         let prevTouchX = 0;
         let prevTouchY = 0;
 
-        function handleStart(e) {
+        function handlePointerDown(e) {
+            // TRIGGER FÜR DIE ANIMATION
+            if (targetBloom === 0) {
+                targetBloom = 1;
+                hint.style.opacity = '0';
+            }
+
             isDragging = true;
             prevTouchX = e.clientX || (e.touches && e.touches[0].clientX);
             prevTouchY = e.clientY || (e.touches && e.touches[0].clientY);
             vX = 0; vY = 0; 
         }
 
-        function handleMove(e) {
+        function handlePointerMove(e) {
             if (isDragging) {
                 let currentX = e.clientX || (e.touches && e.touches[0].clientX);
                 let currentY = e.clientY || (e.touches && e.touches[0].clientY);
@@ -313,41 +278,49 @@
                 let dx = currentX - prevTouchX;
                 let dy = currentY - prevTouchY;
                 
-                vY = dx * 0.004; 
-                vX = dy * 0.004; 
+                vY = dx * 0.005; 
+                vX = dy * 0.005; 
                 
                 prevTouchX = currentX;
                 prevTouchY = currentY;
             }
         }
 
-        function handleEnd() {
+        function handlePointerUp() {
             isDragging = false;
         }
 
-        window.addEventListener('pointerdown', handleStart);
-        window.addEventListener('pointermove', handleMove);
-        window.addEventListener('pointerup', handleEnd);
-        window.addEventListener('touchstart', handleStart, {passive: true});
-        window.addEventListener('touchmove', handleMove, {passive: true});
-        window.addEventListener('touchend', handleEnd);
+        window.addEventListener('pointerdown', handlePointerDown);
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+        window.addEventListener('touchstart', handlePointerDown, {passive: true});
+        window.addEventListener('touchmove', handlePointerMove, {passive: true});
+        window.addEventListener('touchend', handlePointerUp);
 
+        // --- RENDER LOOP ---
         function animate() {
-            ctx.fillStyle = 'rgba(2, 1, 2, 0.4)';
+            ctx.fillStyle = 'rgba(2, 1, 2, 0.5)';
             ctx.fillRect(0, 0, width, height);
 
-            if (globalProgress < 2.8) {
-                globalProgress += 0.005;
+            // Interpolation der Bloom-Animation (wird weich auf 1 gezählt)
+            if (currentBloom < targetBloom) {
+                currentBloom += 0.004; // Geschwindigkeit des Öffnens
+            }
+            if (currentBloom > 0.95 && !isFullyBloomed) {
+                isFullyBloomed = true;
+                hint.innerHTML = "Wische, um die Blume zu betrachten";
+                hint.style.opacity = '1';
+                hint.style.animation = 'none'; // Stoppt das Pulsieren
             }
 
             rotY += vY;
             rotX += vX;
-            rotX = Math.max(-1.0, Math.min(1.0, rotX));
+            rotX = Math.max(-1.2, Math.min(1.2, rotX));
 
             if (!isDragging) {
-                vY *= 0.94;
-                vX *= 0.94;
-                if (Math.abs(vY) < 0.0005) vY += 0.001; 
+                vY *= 0.95;
+                vX *= 0.95;
+                if (Math.abs(vY) < 0.0005) vY += 0.002; 
             }
 
             ctx.globalCompositeOperation = 'screen';
@@ -356,19 +329,18 @@
             const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
 
             const centerX = width / 2;
-            const centerY = height / 2 - 30; 
+            const centerY = height / 2 + 80; 
 
             for (let i = 0; i < points.length; i++) {
                 let p = points[i];
-                p.update(globalProgress);
+                p.update(currentBloom);
 
-                let x = p.currentX;
-                let y = p.currentY;
-                let z = p.currentZ;
+                let x = p.x;
+                let y = p.y;
+                let z = p.z;
 
                 let y1 = y * cosX - z * sinX;
                 let z1 = y * sinX + z * cosX;
-
                 let x2 = x * cosY + z1 * sinY;
                 let z2 = -x * sinY + z1 * cosY;
                 let y2 = y1;
@@ -380,8 +352,8 @@
                     let drawY = centerY + y2 * scale;
                     
                     ctx.fillStyle = p.color;
-                    let size = Math.max(0.4, 1.2 * scale);
-                    
+                    // Die Punkte sind etwas dicker für den plastischen Impasto-Effekt
+                    let size = Math.max(0.8, 1.8 * scale); 
                     ctx.fillRect(drawX, drawY, size, size);
                 }
             }
