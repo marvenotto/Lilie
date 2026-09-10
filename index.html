@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Für Naya - The Organic Roselily</title>
+    <title>Für Naya - Organic True Roselily</title>
     <style>
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
@@ -78,22 +78,19 @@
 
         const fov = 650; 
         let points = [];
-        
         let targetBloom = 0; 
         let currentBloom = 0;
         let isFullyBloomed = false;
 
         class AnimatedPoint {
             constructor(cx, cy, cz, ox, oy, oz, color, bloomDelay) {
-                this.cx = cx; this.cy = cy; this.cz = cz; // Geschlossen
-                this.ox = ox; this.oy = oy; this.oz = oz; // Offen
-                
+                this.cx = cx; this.cy = cy; this.cz = cz; 
+                this.ox = ox; this.oy = oy; this.oz = oz; 
                 this.x = cx; this.y = cy; this.z = cz;
                 this.color = color;
                 
-                // Organisches Timing
                 this.bloomDelay = bloomDelay; 
-                this.bloomSpeed = 0.8 + Math.random() * 0.4; // Jedes Blatt öffnet minimal anders
+                this.bloomSpeed = 0.7 + Math.random() * 0.5; 
             }
 
             update(globalBloom) {
@@ -106,46 +103,51 @@
             }
         }
 
-        // --- GENERATOR FÜR DIE ORGANISCHE ROSELILY ---
         function generateOrganicLily() {
             points = [];
             
-            // 3 Schichten Blütenblätter für extreme Komplexität (insg. 18 Blätter)
+            // DIE 3 SCHICHTEN: Klar getrennt durch Lift (Aufstellung) und Drop (Hängen)
             const layers = [
-                { count: 6, radius: 260, drop: 150, delay: 0.0, points: 1500 }, // Äußere große Blätter
-                { count: 6, radius: 210, drop: 80, delay: 0.15, points: 1200 }, // Mittlere Blätter
-                { count: 6, radius: 150, drop: 20, delay: 0.3, points: 900 }    // Innere, aufgestellte Blätter
+                // Äußere Schicht: Fallen schwer nach unten, weit geöffnet
+                { count: 6, radius: 270, lift: 70, drop: 220, delay: 0.0, points: 1500 },
+                // Mittlere Schicht: Halber Winkel, dynamisch gebogen
+                { count: 6, radius: 210, lift: 130, drop: 90, delay: 0.2, points: 1200 },
+                // Innere Schicht: Bilden einen tiefen, aufrechten Kelch
+                { count: 6, radius: 150, lift: 170, drop: 15, delay: 0.4, points: 900 }
             ];
 
             layers.forEach((layer, layerIndex) => {
                 for (let p = 0; p < layer.count; p++) {
-                    // Leicht asymmetrische Verteilung der Blätter
-                    let angleOffset = (Math.random() - 0.5) * 0.2;
-                    let petalAngle = (Math.PI * 2 / layer.count) * p + (layerIndex * 0.5) + angleOffset;
+                    let angleOffset = (Math.random() - 0.5) * 0.3;
+                    let baseAngle = (Math.PI * 2 / layer.count) * p + (layerIndex * 0.4) + angleOffset;
                     
-                    // Individuelle Blattform (Jedes Blatt ist einzigartig)
-                    let lengthMod = 0.8 + Math.random() * 0.3;
-                    let curlMod = (Math.random() - 0.5) * 40; 
-                    let widthMod = 0.8 + Math.random() * 0.4;
+                    // INDIVIDUELLE BLATT-PHYSIK (Das Chaos der Natur)
+                    let indDrop = layer.drop * (0.5 + Math.random() * 0.8); // Drop variiert extrem
+                    let indLift = layer.lift * (0.8 + Math.random() * 0.4);
+                    let lengthMod = 0.85 + Math.random() * 0.3;
+                    let widthMod = 0.7 + Math.random() * 0.5;
+                    let petalTwist = (Math.random() - 0.5) * 0.6; // Blatt windet sich um die eigene Achse
+                    let asymmetricalCurve = Math.random() * 0.5; // Biege-Punkt verschiebt sich
 
                     for (let i = 0; i < layer.points; i++) {
                         let t = Math.random(); 
                         let w = (Math.random() - 0.5) * 2; 
                         
+                        // Das Blatt verdreht sich organisch nach außen hin
+                        let petalAngle = baseAngle + (t * petalTwist);
+
                         // --- OFFENER ZUSTAND ---
                         let radiusOpen = t * layer.radius * lengthMod;
-                        // Organische Biegung: Fällt nach unten, plus chaotischer Curl am Ende
-                        let pyOpen = -Math.sin(t * Math.PI * 0.9) * 140 + Math.pow(t, 2.5) * layer.drop + (curlMod * t);
                         
-                        // Blattbreite
-                        let widthOpen = Math.sin(t * Math.PI) * (1 - t * 0.2) * 80 * widthMod;
+                        // Die organische Höhenkurve: Ein asymmetrischer Bogen
+                        let pyOpen = -Math.sin(t * Math.PI * (0.8 + asymmetricalCurve)) * indLift + Math.pow(t, 2.5) * indDrop;
                         
-                        // Gewellte Ränder (Ruffles) für Tiefe und Natürlichkeit
-                        let ruffles = Math.sin(t * 30) * Math.sin(w * Math.PI) * 8; 
+                        let widthOpen = Math.sin(t * Math.PI) * (1 - t * 0.15) * 75 * widthMod;
+                        let ruffles = Math.sin(t * 35) * Math.sin(w * Math.PI) * 10; 
                         
-                        // Tiefe Mittelfalte (Blattader)
-                        if (Math.abs(w) < 0.15) {
-                            pyOpen += 12 * Math.sin(t * Math.PI); 
+                        // Tiefe Mittelfalte für plastisches Volumen
+                        if (Math.abs(w) < 0.2) {
+                            pyOpen += 15 * Math.sin(t * Math.PI); 
                         }
 
                         let lateralOpen = w * widthOpen + ruffles;
@@ -154,91 +156,91 @@
                         let oz = Math.sin(petalAngle) * radiusOpen + Math.cos(petalAngle) * lateralOpen;
                         let oy = pyOpen;
                         
-                        // Starkes Rauschen für "gemalten", tiefen 3D Effekt
+                        // Tiefen-Rauschen für den Acryl/Pastos-Effekt
                         let nX = (Math.random() - 0.5) * 4;
                         let nY = (Math.random() - 0.5) * 4;
                         let nZ = (Math.random() - 0.5) * 4;
                         ox += nX; oy += nY; oz += nZ;
 
-                        // --- GESCHLOSSENER ZUSTAND (KNOSPE) ---
-                        // Die Blätter schmiegen sich eng aneinander
-                        let radiusClosed = t * 40 + Math.sin(t * Math.PI) * 20; 
-                        let pyClosed = -t * 220; 
-                        let widthClosed = Math.sin(t * Math.PI) * 20;
+                        // --- GESCHLOSSENE KNOSPE ---
+                        let radiusClosed = t * 40 + Math.sin(t * Math.PI) * 25; 
+                        let pyClosed = -t * (240 - layerIndex * 20); 
+                        let widthClosed = Math.sin(t * Math.PI) * 25;
                         let lateralClosed = w * widthClosed;
                         
-                        // Spiral-Form der Knospe
-                        let twist = t * Math.PI * 0.7;
-                        let closedAngle = petalAngle + twist;
+                        let closedAngle = baseAngle + (t * Math.PI * 0.8);
 
                         let cx = Math.cos(closedAngle) * radiusClosed - Math.sin(closedAngle) * lateralClosed;
                         let cz = Math.sin(closedAngle) * radiusClosed + Math.cos(closedAngle) * lateralClosed;
                         let cy = pyClosed;
                         cx += nX*0.5; cy += nY*0.5; cz += nZ*0.5;
 
-                        // --- FARBE: GELB -> PINK -> ROSA -> WEIß ---
+                        // --- FARBE: KONTRAST FÜR TIEFE ---
                         let color;
                         let absW = Math.abs(w);
+                        let hue = 335; 
                         
-                        if (t < 0.15) {
-                            // Gelbes Zentrum
-                            color = `hsla(50, 90%, 55%, 0.9)`; 
+                        if (t < 0.2) {
+                            // Gelbgrüner Trichter (Schatten)
+                            let dark = layerIndex === 2 ? 40 : 25; // Innere Blätter leuchten etwas mehr
+                            color = `hsla(60, 90%, ${dark}%, 1)`; 
                         } else {
-                            let hue = 335; // Pinke Basis
-                            let saturation = 90 - (t * 30); // Außen blasser
+                            let saturation = 95 - (t * 20); 
                             
-                            // Die Ränder und Spitzen werden extrem hell (Weiß/Hellrosa)
-                            let lightness = 40 + (t * 45) + (absW * 25);
-                            if (lightness > 90) lightness = 95; 
+                            // Die Spitzen und Ränder werden weiß/hellrosa
+                            let lightness = 35 + (t * 50) + (absW * 30);
                             
+                            // Äußere Blätter sind am Rand einen Hauch dunkler, um die inneren strahlen zu lassen
+                            if (layerIndex === 0) lightness -= 10;
+                            
+                            if (lightness > 92) lightness = 95; 
                             color = `hsla(${hue}, ${saturation}%, ${lightness}%, 0.85)`;
                         }
 
-                        // Dunkelrote Sommersprossen in der Mitte des Blattes
-                        if (t > 0.25 && t < 0.7 && absW < 0.5) {
-                            if (Math.random() < 0.05) {
-                                color = `hsla(330, 100%, 25%, 1)`; // Tiefes Burgund/Magenta
-                                oy -= 2; cy -= 1; // Sprossen sind leicht erhaben!
+                        // Sommersprossen
+                        if (t > 0.3 && t < 0.75 && absW < 0.45) {
+                            if (Math.random() < 0.06) {
+                                color = `hsla(330, 100%, 20%, 1)`; // Tiefes Magenta
+                                oy -= 2.5; cy -= 1; // Erhabene Textur
                             }
                         }
 
-                        // Jedes einzelne Blatt bekommt einen leicht eigenen Delay
-                        let individualDelay = layer.delay + (Math.random() * 0.1);
+                        let individualDelay = layer.delay + (Math.random() * 0.15);
                         points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, color, individualDelay));
                     }
                 }
             });
 
-            // 2. DIE STAUBGEFÄßE (Pistils & Stamens)
-            for (let s = 0; s < 9; s++) { // Mehr Staubgefäße für diese komplexe Lilie
-                let angle = (Math.PI * 2 / 9) * s;
+            // DIE STAUBGEFÄßE (Pistils & Stamens - asymmetrisch!)
+            for (let s = 0; s < 9; s++) { 
+                let angle = (Math.PI * 2 / 9) * s + (Math.random() - 0.5) * 0.5;
+                let lengthMod = 0.8 + Math.random() * 0.4;
                 
                 for(let i = 0; i < 250; i++) {
                     let t = Math.random();
                     
-                    let radiusOpen = t * 140;
-                    let pyOpen = -Math.sin(t * Math.PI * 0.8) * 160;
-                    let ox = Math.cos(angle) * radiusOpen + (Math.random()-0.5)*3;
-                    let oz = Math.sin(angle) * radiusOpen + (Math.random()-0.5)*3;
-                    let oy = pyOpen + (Math.random()-0.5)*3;
+                    let radiusOpen = t * 160 * lengthMod;
+                    // Hängen unterschiedlich weit durch
+                    let pyOpen = -Math.sin(t * Math.PI * (0.7 + Math.random()*0.2)) * 180;
+                    let ox = Math.cos(angle) * radiusOpen + (Math.random()-0.5)*4;
+                    let oz = Math.sin(angle) * radiusOpen + (Math.random()-0.5)*4;
+                    let oy = pyOpen + (Math.random()-0.5)*4;
 
                     let cx = Math.cos(angle) * (t * 8);
                     let cz = Math.sin(angle) * (t * 8);
-                    let cy = -t * 180;
+                    let cy = -t * 190;
 
                     let color;
                     if (t > 0.9) {
-                        // Pollenkopf (Antheren) - Orange/Braun, sehr dick!
-                        ox += (Math.random() - 0.5) * 12;
-                        oy += (Math.random() - 0.5) * 18;
-                        oz += (Math.random() - 0.5) * 12;
-                        color = `hsla(30, 100%, 45%, 1)`; 
+                        ox += (Math.random() - 0.5) * 15;
+                        oy += (Math.random() - 0.5) * 20;
+                        oz += (Math.random() - 0.5) * 15;
+                        color = `hsla(30, 100%, 50%, 1)`; // Leuchtendes Orange
                     } else {
-                        color = `hsla(60, 40%, 80%, 0.6)`; // Helle Fäden
+                        color = `hsla(70, 40%, 75%, 0.7)`; // Filamente
                     }
                     
-                    // Schießen ganz am Ende der Animation heraus
-                    points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, color, 0.45));
+                    points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, color, 0.5));
                 }
             }
         }
@@ -256,7 +258,6 @@
         let prevTouchY = 0;
 
         function handlePointerDown(e) {
-            // WECHEN DER BLÜTE
             if (targetBloom === 0) {
                 targetBloom = 1;
                 hint.style.opacity = '0';
@@ -294,15 +295,15 @@
 
         // --- RENDER LOOP ---
         function animate() {
-            ctx.fillStyle = 'rgba(2, 1, 2, 0.4)';
+            ctx.fillStyle = 'rgba(2, 1, 2, 0.5)';
             ctx.fillRect(0, 0, width, height);
 
             if (currentBloom < targetBloom) {
-                currentBloom += 0.005; 
+                currentBloom += 0.004; 
             }
             if (currentBloom > 0.95 && !isFullyBloomed) {
                 isFullyBloomed = true;
-                hint.innerHTML = "Wische, um die Details zu betrachten";
+                hint.innerHTML = "Wische, um die organischen Details zu betrachten";
                 hint.style.opacity = '1';
                 hint.style.animation = 'none'; 
             }
@@ -346,7 +347,7 @@
                     let drawY = centerY + y2 * scale;
                     
                     ctx.fillStyle = p.color;
-                    let size = Math.max(0.6, 1.5 * scale); 
+                    let size = Math.max(0.6, 1.6 * scale); 
                     ctx.fillRect(drawX, drawY, size, size);
                 }
             }
