@@ -3,50 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Für Naya - Ästhetische Lilie</title>
+    <title>Für Naya - 3D Point Cloud Lily</title>
     <style>
         body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at center, #1a1014 0%, #050203 100%);
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #030303; /* Echtes Schwarz für den Point-Cloud Effekt */
             overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            touch-action: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            touch-action: none; 
         }
         canvas {
-            display: block;
+            display: block; width: 100%; height: 100%;
         }
-        #instruction {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: rgba(255, 182, 193, 0.4);
-            font-size: 1.2rem;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            font-weight: 300;
-            pointer-events: none;
-            transition: opacity 1s ease;
-            text-align: center;
+        .instruction {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: rgba(255, 182, 193, 0.4); font-size: 11px; letter-spacing: 5px;
+            text-transform: uppercase; font-weight: 300; pointer-events: none;
+            transition: opacity 1s ease; text-align: center;
         }
     </style>
 </head>
 <body>
-    <div id="instruction">Tippe für eine Lilie</div>
-    <canvas id="flowerCanvas"></canvas>
+    <div class="instruction" id="hint">Tippe, um die 3D Punktwolke zu generieren</div>
+    <canvas id="canvas"></canvas>
 
     <script>
-        const canvas = document.getElementById('flowerCanvas');
+        const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const instruction = document.getElementById('instruction');
+        const hint = document.getElementById('hint');
 
         let width, height;
-        let dpr = Math.min(window.devicePixelRatio || 1, 2); // Gestochen scharfe Kanten
-        let lilies = [];
-        let isFirstInteraction = true;
+        let dpr = Math.min(window.devicePixelRatio || 1, 2);
+        
+        // Kamera & 3D Setup
+        const fov = 400; // Sichtfeld (Perspective)
+        let flowers = [];
+        let isFirst = true;
 
         function resize() {
             width = window.innerWidth;
@@ -58,184 +50,187 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // Ease-Out Funktion für sanftes, natürliches Aufblühen
-        function easeOutCubic(x) {
-            return 1 - Math.pow(1 - x, 3);
+        // Ein einzelner Punkt in der 3D-Wolke
+        class Point3D {
+            constructor(tx, ty, tz, color) {
+                // Ziel-Koordinaten (Die fertige Blumenform)
+                this.tx = tx; 
+                this.ty = ty; 
+                this.tz = tz;
+                
+                // Start-Koordinaten (Explodieren aus der Mitte)
+                this.x = (Math.random() - 0.5) * 10;
+                this.y = (Math.random() - 0.5) * 10;
+                this.z = (Math.random() - 0.5) * 10;
+                
+                this.color = color;
+                
+                // Organisches Einfliegen an die Zielposition
+                this.speed = 0.02 + Math.random() * 0.04;
+                this.noiseX = (Math.random() - 0.5) * 20;
+                this.noiseY = (Math.random() - 0.5) * 20;
+                this.noiseZ = (Math.random() - 0.5) * 20;
+            }
+
+            update(progress) {
+                // Fliegt smooth an die Ziel-Position (Interpolation)
+                let ease = 1 - Math.pow(1 - progress, 3);
+                this.x += (this.tx - this.x) * this.speed;
+                this.y += (this.ty - this.y) * this.speed;
+                this.z += (this.tz - this.z) * this.speed;
+            }
         }
 
-        class ElegantLily {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
+        // Die komplette 3D-Blume (Spinnenlilie)
+        class PointCloudFlower {
+            constructor(screenX, screenY) {
+                this.screenX = screenX;
+                this.screenY = screenY;
+                this.points = [];
                 this.progress = 0;
-                this.age = 0;
-                this.life = 600; // Wie lange die Blume bleibt
-                this.baseRotation = Math.random() * Math.PI * 2;
+                this.rotationY = 0;
                 
-                // Exklusive, warme Pink- und Rosatöne
-                this.hue = 330 + Math.random() * 25; 
-                this.size = 60 + Math.random() * 30;
+                // Warme, leuchtende Pink-Töne
+                const baseHue = 330 + Math.random() * 25;
                 
-                // Generiere die einzigartigen Eigenschaften dieser speziellen Lilie
-                this.petalCount = 6; 
-                this.petals = [];
-                for(let i=0; i<this.petalCount; i++) {
-                    this.petals.push({
-                        angleOffset: (Math.PI * 2 / this.petalCount) * i + (Math.random() - 0.5) * 0.2,
-                        lengthMod: 0.8 + Math.random() * 0.4,
-                        widthMod: 0.6 + Math.random() * 0.4,
-                        curl: (Math.random() - 0.5) * 0.8
-                    });
+                // 1. GENERIERE DIE BLÜTENBLÄTTER (Petals)
+                const numPetals = 6;
+                for (let p = 0; p < numPetals; p++) {
+                    const angle = (Math.PI * 2 / numPetals) * p;
+                    
+                    // Wir scatter tausende Punkte entlang einer geschwungenen Kurve
+                    for (let i = 0; i < 400; i++) {
+                        const t = Math.random(); // Position entlang des Blattes
+                        
+                        // Mathematische Kurve der Spinnenlilie in 3D
+                        const radius = t * 120; // Wie weit nach außen
+                        const heightY = Math.sin(t * Math.PI) * -60 + (t * t * 40); // Bogen nach oben, dann unten
+                        
+                        // Rauschen hinzufügen für die "Scanned Point Cloud" Optik
+                        const scatterX = (Math.random() - 0.5) * (15 * t);
+                        const scatterY = (Math.random() - 0.5) * 5;
+                        const scatterZ = (Math.random() - 0.5) * (15 * t);
+                        
+                        // In 3D-Raum drehen
+                        const tx = Math.cos(angle) * radius + scatterX;
+                        const tz = Math.sin(angle) * radius + scatterZ;
+                        const ty = heightY + scatterY;
+
+                        const lightness = 40 + t * 40; // Spitzen sind heller
+                        const color = `hsla(${baseHue}, 90%, ${lightness}%, 0.8)`;
+                        
+                        this.points.push(new Point3D(tx, ty, tz, color));
+                    }
                 }
 
-                // Staubgefäße (Die feinen, langen Fäden der Lilie)
-                this.stamenCount = 7 + Math.floor(Math.random() * 3);
-                this.stamens = [];
-                for(let i=0; i<this.stamenCount; i++) {
-                    this.stamens.push({
-                        angle: Math.random() * Math.PI * 2,
-                        lengthMod: 1.2 + Math.random() * 0.8,
-                        curve: (Math.random() - 0.5) * 1.5
-                    });
+                // 2. GENERIERE DIE LANGEN FÄDEN (Stamens)
+                const numStamens = 7;
+                for (let s = 0; s < numStamens; s++) {
+                    const angle = (Math.PI * 2 / numStamens) * s + 0.5;
+                    
+                    for (let i = 0; i < 250; i++) {
+                        const t = Math.random(); 
+                        
+                        const radius = t * 180; // Fäden sind länger als Blätter
+                        const heightY = Math.sin(t * Math.PI * 0.8) * -120; // Weiterer Bogen
+                        
+                        const scatterX = (Math.random() - 0.5) * 4;
+                        const scatterY = (Math.random() - 0.5) * 4;
+                        const scatterZ = (Math.random() - 0.5) * 4;
+                        
+                        const tx = Math.cos(angle) * radius + scatterX;
+                        const tz = Math.sin(angle) * radius + scatterZ;
+                        const ty = heightY + scatterY;
+
+                        // Leuchtende Spitzen
+                        let color;
+                        if (t > 0.95) {
+                            color = `hsla(50, 100%, 75%, 0.9)`; // Goldene Pollen
+                        } else {
+                            color = `hsla(${baseHue + 15}, 80%, 75%, 0.6)`;
+                        }
+                        
+                        this.points.push(new Point3D(tx, ty, tz, color));
+                    }
                 }
             }
 
             update() {
-                this.age++;
                 if (this.progress < 1) {
-                    this.progress += 0.015; // Wachstumsgeschwindigkeit
-                    if (this.progress > 1) this.progress = 1;
+                    this.progress += 0.01;
                 }
+                // Dreht die gesamte 3D-Wolke langsam um die Y-Achse
+                this.rotationY += 0.005;
+                
+                this.points.forEach(p => p.update(this.progress));
             }
 
-            draw() {
-                if (this.progress === 0) return;
-
-                const growth = easeOutCubic(this.progress);
-                const currentSize = this.size * growth;
+            draw(ctx) {
+                const cosY = Math.cos(this.rotationY);
+                const sinY = Math.sin(this.rotationY);
                 
-                // Sanftes Ausblenden am Ende der Lebenszeit
-                let alpha = 1;
-                if (this.age > this.life - 100) {
-                    alpha = Math.max(0, (this.life - this.age) / 100);
-                }
+                // Wir sortieren die Punkte nicht strikt (aus Performancegründen),
+                // der Screen-Blend-Modus sorgt trotzdem für perfekte Tiefenoptik!
                 
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                ctx.rotate(this.baseRotation);
-                ctx.globalAlpha = alpha;
-
-                // 1. HAUPT-BLÜTENBLÄTTER ZEICHNEN
-                for(let i=0; i<this.petalCount; i++) {
-                    let p = this.petals[i];
-                    ctx.save();
-                    ctx.rotate(p.angleOffset);
-
-                    let pLen = currentSize * 2.5 * p.lengthMod;
-                    let pWidth = currentSize * 0.5 * p.widthMod;
-
-                    // 3D-Volumen durch Farbverläufe (Licht und Schatten)
-                    let grad = ctx.createLinearGradient(0, 0, pLen, 0);
-                    grad.addColorStop(0, `hsla(${this.hue}, 90%, 20%, 1)`); // Tiefes Zentrum
-                    grad.addColorStop(0.4, `hsla(${this.hue}, 85%, 60%, 1)`); // Kräftiges Pink
-                    grad.addColorStop(1, `hsla(${this.hue}, 100%, 85%, 0.9)`); // Zarte helle Spitze
-
-                    ctx.fillStyle = grad;
+                for (let i = 0; i < this.points.length; i++) {
+                    const p = this.points[i];
                     
-                    // Zeichne das geschwungene Lilienblatt
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
+                    // 3D Rotation um die Y-Achse
+                    const rotX = p.x * cosY - p.z * sinY;
+                    const rotZ = p.z * cosY + p.x * sinY;
+                    const rotY = p.y;
                     
-                    // Obere Kurve
-                    ctx.bezierCurveTo(
-                        pLen * 0.4, -pWidth, 
-                        pLen * 0.8, -pWidth * 0.5 + p.curl * pWidth, 
-                        pLen, p.curl * pWidth
-                    );
+                    // 3D zu 2D Projektion (Perspective)
+                    const scale = fov / (fov + rotZ + 200); // 200 ist der Kamera-Abstand
+                    const drawX = this.screenX + rotX * scale;
+                    const drawY = this.screenY + rotY * scale;
                     
-                    // Untere Kurve zurück zur Mitte
-                    ctx.bezierCurveTo(
-                        pLen * 0.8, pWidth * 0.5 + p.curl * pWidth, 
-                        pLen * 0.4, pWidth, 
-                        0, 0
-                    );
-                    
-                    ctx.fill();
-                    
-                    // Feine Blattader in der Mitte
-                    ctx.strokeStyle = `hsla(${this.hue}, 60%, 90%, 0.4)`;
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    ctx.quadraticCurveTo(pLen * 0.5, p.curl * pWidth * 0.5, pLen * 0.9, p.curl * pWidth);
-                    ctx.stroke();
-
-                    ctx.restore();
-                }
-
-                // 2. LANGE STAUBGEFÄßE ZEICHNEN (Verzögert, wachsen aus der Mitte heraus)
-                let stamenGrowth = Math.max(0, (growth - 0.4) * 1.6); // Startet später
-                if (stamenGrowth > 0) {
-                    for(let i=0; i<this.stamenCount; i++) {
-                        let s = this.stamens[i];
-                        ctx.save();
-                        ctx.rotate(s.angle);
-
-                        let sLen = currentSize * 3.5 * s.lengthMod * stamenGrowth;
+                    // Punkte, die "hinten" sind, sind kleiner und dunkler
+                    if (scale > 0) {
+                        ctx.fillStyle = p.color;
+                        const size = Math.max(0.5, 1.5 * scale);
                         
-                        // Zarter, geschwungener Faden
-                        ctx.beginPath();
-                        ctx.moveTo(0, 0);
-                        ctx.quadraticCurveTo(sLen * 0.5, s.curve * currentSize, sLen, 0);
-                        
-                        ctx.strokeStyle = `hsla(${this.hue}, 90%, 75%, 0.8)`;
-                        ctx.lineWidth = 1.5;
-                        ctx.stroke();
-
-                        // Leuchtender Pollenkopf an der Spitze
-                        ctx.beginPath();
-                        ctx.arc(sLen, 0, 2.5, 0, Math.PI * 2);
-                        ctx.fillStyle = '#ffda75'; // Gold
-                        ctx.shadowBlur = 8;
-                        ctx.shadowColor = '#ffda75';
-                        ctx.fill();
-                        ctx.shadowBlur = 0; // Schatten zurücksetzen
-
-                        ctx.restore();
+                        // fillRect ist extrem performant für Point Clouds
+                        ctx.fillRect(drawX, drawY, size, size);
                     }
                 }
-
-                ctx.restore();
             }
         }
 
-        function spawnLily(x, y) {
-            if (isFirstInteraction) {
-                instruction.style.opacity = '0';
-                isFirstInteraction = false;
+        // Interaktion
+        function handlePointerDown(e) {
+            if (isFirst) {
+                hint.style.opacity = '0';
+                isFirst = false;
             }
-            lilies.push(new ElegantLily(x, y));
+            let tx = e.clientX || (e.touches && e.touches[0].clientX);
+            let ty = e.clientY || (e.touches && e.touches[0].clientY);
+            
+            // Spawne eine neue 3D Punktwolken-Blume
+            flowers.push(new PointCloudFlower(tx, ty));
+            
+            // Halte den Speicher sauber (max 4 Blumen gleichzeitig)
+            if (flowers.length > 4) flowers.shift();
         }
 
-        window.addEventListener('pointerdown', (e) => {
-            spawnLily(e.clientX, e.clientY);
-        });
+        window.addEventListener('pointerdown', handlePointerDown);
+        window.addEventListener('touchstart', handlePointerDown, {passive: true});
 
+        // Animations-Schleife
         function animate() {
-            // Extrem leichter Motion Blur für geschmeidige Optik
-            ctx.fillStyle = 'rgba(10, 5, 8, 0.4)';
+            // Schwarzer Hintergrund mit extrem schwachem Ghosting-Effekt
+            ctx.fillStyle = 'rgba(3, 3, 3, 0.6)';
             ctx.fillRect(0, 0, width, height);
-            
-            for (let i = lilies.length - 1; i >= 0; i--) {
-                const lily = lilies[i];
-                lily.update();
-                lily.draw();
-                
-                if (lily.age >= lily.life) {
-                    lilies.splice(i, 1);
-                }
-            }
-            
+
+            // Screen-Blending simuliert das Leuchten aus TouchDesigner
+            ctx.globalCompositeOperation = 'screen';
+
+            flowers.forEach(flower => {
+                flower.update();
+                flower.draw(ctx);
+            });
+
+            ctx.globalCompositeOperation = 'source-over';
             requestAnimationFrame(animate);
         }
 
