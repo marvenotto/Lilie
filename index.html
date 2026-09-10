@@ -2,43 +2,97 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Für Naya - 3D Point Cloud Lily</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Für Naya</title>
     <style>
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: #030303; /* Echtes Schwarz für den Point-Cloud Effekt */
+            background-color: #030202; /* Tiefstes Schwarz für den perfekten Leuchteffekt */
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            touch-action: none; 
+            touch-action: none; /* WICHTIG: Verhindert das Scrollen beim Drehen */
+            user-select: none;
+            -webkit-user-select: none;
         }
         canvas {
-            display: block; width: 100%; height: 100%;
+            display: block; width: 100%; height: 100%; cursor: grab;
         }
-        .instruction {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: rgba(255, 182, 193, 0.4); font-size: 11px; letter-spacing: 5px;
-            text-transform: uppercase; font-weight: 300; pointer-events: none;
-            transition: opacity 1s ease; text-align: center;
+        canvas:active {
+            cursor: grabbing;
+        }
+        /* Die personalisierte Geburtstags-Botschaft */
+        .greeting-container {
+            position: absolute;
+            top: 12%;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .greeting {
+            color: #ffda75; /* Edles Gold */
+            font-size: 24px;
+            font-weight: 300;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px rgba(255, 218, 117, 0.4);
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeUp 3s ease forwards;
+            animation-delay: 2s; /* Erscheint erst, wenn die Blume sich formt */
+        }
+        .sub-greeting {
+            color: rgba(255, 182, 193, 0.6); /* Zartes Rosa */
+            font-size: 11px;
+            letter-spacing: 8px;
+            margin-top: 8px;
+            text-transform: uppercase;
+            opacity: 0;
+            animation: fadeUp 3s ease forwards;
+            animation-delay: 3s;
+        }
+        .interaction-hint {
+            position: absolute;
+            bottom: 8%;
+            width: 100%;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 10px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            pointer-events: none;
+            opacity: 0;
+            animation: pulseHint 4s infinite;
+            animation-delay: 5s;
+        }
+        @keyframes fadeUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulseHint {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
         }
     </style>
 </head>
 <body>
-    <div class="instruction" id="hint">Tippe, um die 3D Punktwolke zu generieren</div>
+    
+    <div class="greeting-container">
+        <div class="greeting">Happy Birthday, Naya</div>
+        <div class="sub-greeting">Von Marven</div>
+    </div>
+    
+    <div class="interaction-hint">Wische, um die Blume zu drehen</div>
+
     <canvas id="canvas"></canvas>
 
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const hint = document.getElementById('hint');
 
-        let width, height;
+        // Auflösung optimieren (Gestochen scharf, aber kein Lag)
         let dpr = Math.min(window.devicePixelRatio || 1, 2);
-        
-        // Kamera & 3D Setup
-        const fov = 400; // Sichtfeld (Perspective)
-        let flowers = [];
-        let isFirst = true;
+        let width, height;
 
         function resize() {
             width = window.innerWidth;
@@ -50,185 +104,254 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // Ein einzelner Punkt in der 3D-Wolke
+        // 3D & Kamera Setup
+        const fov = 500; 
+        let points = [];
+        
+        // Aufbau-Animation
+        let globalProgress = 0;
+
+        // --- EXAKTE MATHEMATIK EINER SPINNENLILIE ---
+        function generateLily() {
+            points = [];
+            const baseHue = 335; // Nayas warmes Rosa/Pink
+            
+            // 1. DER STIEL (Gerade, kräftig, grün)
+            for (let i = 0; i < 2000; i++) {
+                let t = Math.random();
+                let py = t * 350; // Wächst nach unten
+                let radius = 3 + Math.random() * 2;
+                let angle = Math.random() * Math.PI * 2;
+                
+                let px = Math.cos(angle) * radius;
+                let pz = Math.sin(angle) * radius;
+                
+                // Streuung für den Point-Cloud Look
+                px += (Math.random() - 0.5) * 2;
+                pz += (Math.random() - 0.5) * 2;
+                
+                points.push(new Point3D(px, py, pz, `hsla(140, 40%, 30%, 0.8)`));
+            }
+
+            // 2. DIE 6 BLÜTENBLÄTTER (Stark nach hinten gebogen, gewellte Ränder)
+            const numPetals = 6;
+            for (let p = 0; p < numPetals; p++) {
+                let petalAngle = (Math.PI * 2 / numPetals) * p;
+                
+                for (let i = 0; i < 1500; i++) {
+                    let t = Math.random(); // Länge entlang des Blattes (0 bis 1)
+                    let w = (Math.random() - 0.5); // Breite des Blattes (-0.5 bis 0.5)
+                    
+                    // Die typische Krümmung der Lilie: Erst leicht hoch, dann stark nach unten fallend
+                    let radius = t * 150; 
+                    let py = -Math.sin(t * Math.PI) * 60 + Math.pow(t, 3) * 140; 
+                    
+                    // Gewellte, organische Kanten
+                    let petalWidth = Math.sin(t * Math.PI) * 18; 
+                    let frill = Math.sin(t * 30) * 3; // Das "Mufflige/Gewellte"
+                    let lateral = (w * petalWidth) + (w > 0 ? frill : -frill);
+                    
+                    // In 3D-Koordinaten umrechnen
+                    let px = Math.cos(petalAngle) * radius - Math.sin(petalAngle) * lateral;
+                    let pz = Math.sin(petalAngle) * radius + Math.cos(petalAngle) * lateral;
+                    
+                    // Zartes Rauschen
+                    px += (Math.random() - 0.5) * 2;
+                    py += (Math.random() - 0.5) * 2;
+                    pz += (Math.random() - 0.5) * 2;
+
+                    // Farbverlauf: Innen tief dunkel, außen leuchtend pink
+                    let lightness = 35 + t * 45; 
+                    let color = `hsla(${baseHue}, 95%, ${lightness}%, 0.85)`;
+                    
+                    points.push(new Point3D(px, py, pz, color));
+                }
+            }
+
+            // 3. DIE 6 LANGEN STAUBGEFÄßE (Weit nach oben und außen schwingend)
+            for (let s = 0; s < numPetals; s++) {
+                // Leicht versetzt zu den Blättern
+                let stamenAngle = (Math.PI * 2 / numPetals) * s + (Math.PI / numPetals);
+                
+                for (let i = 0; i < 400; i++) {
+                    let t = Math.random();
+                    
+                    let radius = t * 200; // Sehr lang
+                    // Schwingen hoch in die Luft und hängen am Ende leicht über
+                    let py = -Math.sin(t * Math.PI * 0.8) * 180; 
+                    
+                    let px = Math.cos(stamenAngle) * radius;
+                    let pz = Math.sin(stamenAngle) * radius;
+                    
+                    // Dünne Fäden
+                    px += (Math.random() - 0.5) * 3;
+                    py += (Math.random() - 0.5) * 3;
+                    pz += (Math.random() - 0.5) * 3;
+
+                    // Die Spitzen sind golden leuchtend
+                    let color = t > 0.94 ? `hsla(45, 100%, 70%, 0.9)` : `hsla(${baseHue + 15}, 80%, 65%, 0.6)`;
+                    
+                    points.push(new Point3D(px, py - 10, pz, color)); // Leicht nach oben versetzt
+                }
+            }
+        }
+
+        // --- DIE 3D PUNKTE ---
         class Point3D {
             constructor(tx, ty, tz, color) {
-                // Ziel-Koordinaten (Die fertige Blumenform)
+                // Ziel-Form
                 this.tx = tx; 
                 this.ty = ty; 
                 this.tz = tz;
                 
-                // Start-Koordinaten (Explodieren aus der Mitte)
-                this.x = (Math.random() - 0.5) * 10;
-                this.y = (Math.random() - 0.5) * 10;
-                this.z = (Math.random() - 0.5) * 10;
+                // Start-Position (Sie fliegen wie Sternenstaub aus der Mitte nach außen)
+                let randomRadius = Math.random() * 300;
+                let randomAngle1 = Math.random() * Math.PI * 2;
+                let randomAngle2 = Math.random() * Math.PI * 2;
+                this.x = Math.cos(randomAngle1) * Math.sin(randomAngle2) * randomRadius;
+                this.y = Math.cos(randomAngle2) * randomRadius;
+                this.z = Math.sin(randomAngle1) * Math.sin(randomAngle2) * randomRadius;
                 
                 this.color = color;
                 
-                // Organisches Einfliegen an die Zielposition
-                this.speed = 0.02 + Math.random() * 0.04;
-                this.noiseX = (Math.random() - 0.5) * 20;
-                this.noiseY = (Math.random() - 0.5) * 20;
-                this.noiseZ = (Math.random() - 0.5) * 20;
+                // Individuelles Timing für das Zusammensetzen
+                this.speed = 0.02 + Math.random() * 0.03;
+                this.delay = Math.random() * 0.5;
             }
 
             update(progress) {
-                // Fliegt smooth an die Ziel-Position (Interpolation)
-                let ease = 1 - Math.pow(1 - progress, 3);
-                this.x += (this.tx - this.x) * this.speed;
-                this.y += (this.ty - this.y) * this.speed;
-                this.z += (this.tz - this.z) * this.speed;
-            }
-        }
-
-        // Die komplette 3D-Blume (Spinnenlilie)
-        class PointCloudFlower {
-            constructor(screenX, screenY) {
-                this.screenX = screenX;
-                this.screenY = screenY;
-                this.points = [];
-                this.progress = 0;
-                this.rotationY = 0;
-                
-                // Warme, leuchtende Pink-Töne
-                const baseHue = 330 + Math.random() * 25;
-                
-                // 1. GENERIERE DIE BLÜTENBLÄTTER (Petals)
-                const numPetals = 6;
-                for (let p = 0; p < numPetals; p++) {
-                    const angle = (Math.PI * 2 / numPetals) * p;
+                // Interpolation von der Wolke zur exakten Blumenform
+                if (progress > this.delay) {
+                    let p = Math.min(1, (progress - this.delay) * 2);
+                    let ease = 1 - Math.pow(1 - p, 4); // Sehr geschmeidiges Einrasten
                     
-                    // Wir scatter tausende Punkte entlang einer geschwungenen Kurve
-                    for (let i = 0; i < 400; i++) {
-                        const t = Math.random(); // Position entlang des Blattes
-                        
-                        // Mathematische Kurve der Spinnenlilie in 3D
-                        const radius = t * 120; // Wie weit nach außen
-                        const heightY = Math.sin(t * Math.PI) * -60 + (t * t * 40); // Bogen nach oben, dann unten
-                        
-                        // Rauschen hinzufügen für die "Scanned Point Cloud" Optik
-                        const scatterX = (Math.random() - 0.5) * (15 * t);
-                        const scatterY = (Math.random() - 0.5) * 5;
-                        const scatterZ = (Math.random() - 0.5) * (15 * t);
-                        
-                        // In 3D-Raum drehen
-                        const tx = Math.cos(angle) * radius + scatterX;
-                        const tz = Math.sin(angle) * radius + scatterZ;
-                        const ty = heightY + scatterY;
-
-                        const lightness = 40 + t * 40; // Spitzen sind heller
-                        const color = `hsla(${baseHue}, 90%, ${lightness}%, 0.8)`;
-                        
-                        this.points.push(new Point3D(tx, ty, tz, color));
-                    }
-                }
-
-                // 2. GENERIERE DIE LANGEN FÄDEN (Stamens)
-                const numStamens = 7;
-                for (let s = 0; s < numStamens; s++) {
-                    const angle = (Math.PI * 2 / numStamens) * s + 0.5;
-                    
-                    for (let i = 0; i < 250; i++) {
-                        const t = Math.random(); 
-                        
-                        const radius = t * 180; // Fäden sind länger als Blätter
-                        const heightY = Math.sin(t * Math.PI * 0.8) * -120; // Weiterer Bogen
-                        
-                        const scatterX = (Math.random() - 0.5) * 4;
-                        const scatterY = (Math.random() - 0.5) * 4;
-                        const scatterZ = (Math.random() - 0.5) * 4;
-                        
-                        const tx = Math.cos(angle) * radius + scatterX;
-                        const tz = Math.sin(angle) * radius + scatterZ;
-                        const ty = heightY + scatterY;
-
-                        // Leuchtende Spitzen
-                        let color;
-                        if (t > 0.95) {
-                            color = `hsla(50, 100%, 75%, 0.9)`; // Goldene Pollen
-                        } else {
-                            color = `hsla(${baseHue + 15}, 80%, 75%, 0.6)`;
-                        }
-                        
-                        this.points.push(new Point3D(tx, ty, tz, color));
-                    }
-                }
-            }
-
-            update() {
-                if (this.progress < 1) {
-                    this.progress += 0.01;
-                }
-                // Dreht die gesamte 3D-Wolke langsam um die Y-Achse
-                this.rotationY += 0.005;
-                
-                this.points.forEach(p => p.update(this.progress));
-            }
-
-            draw(ctx) {
-                const cosY = Math.cos(this.rotationY);
-                const sinY = Math.sin(this.rotationY);
-                
-                // Wir sortieren die Punkte nicht strikt (aus Performancegründen),
-                // der Screen-Blend-Modus sorgt trotzdem für perfekte Tiefenoptik!
-                
-                for (let i = 0; i < this.points.length; i++) {
-                    const p = this.points[i];
-                    
-                    // 3D Rotation um die Y-Achse
-                    const rotX = p.x * cosY - p.z * sinY;
-                    const rotZ = p.z * cosY + p.x * sinY;
-                    const rotY = p.y;
-                    
-                    // 3D zu 2D Projektion (Perspective)
-                    const scale = fov / (fov + rotZ + 200); // 200 ist der Kamera-Abstand
-                    const drawX = this.screenX + rotX * scale;
-                    const drawY = this.screenY + rotY * scale;
-                    
-                    // Punkte, die "hinten" sind, sind kleiner und dunkler
-                    if (scale > 0) {
-                        ctx.fillStyle = p.color;
-                        const size = Math.max(0.5, 1.5 * scale);
-                        
-                        // fillRect ist extrem performant für Point Clouds
-                        ctx.fillRect(drawX, drawY, size, size);
-                    }
+                    this.currentX = this.x + (this.tx - this.x) * ease;
+                    this.currentY = this.y + (this.ty - this.y) * ease;
+                    this.currentZ = this.z + (this.tz - this.z) * ease;
+                } else {
+                    this.currentX = this.x;
+                    this.currentY = this.y;
+                    this.currentZ = this.z;
                 }
             }
         }
 
-        // Interaktion
-        function handlePointerDown(e) {
-            if (isFirst) {
-                hint.style.opacity = '0';
-                isFirst = false;
-            }
-            let tx = e.clientX || (e.touches && e.touches[0].clientX);
-            let ty = e.clientY || (e.touches && e.touches[0].clientY);
-            
-            // Spawne eine neue 3D Punktwolken-Blume
-            flowers.push(new PointCloudFlower(tx, ty));
-            
-            // Halte den Speicher sauber (max 4 Blumen gleichzeitig)
-            if (flowers.length > 4) flowers.shift();
+        generateLily();
+
+        // --- 3D TOUCH-STEUERUNG (Orbit Controls) ---
+        let rotX = -0.2; // Leicht von oben draufschauen
+        let rotY = 0;
+        let vX = 0;
+        let vY = 0.005; // Automatische, ganz langsame Drehung am Anfang
+        
+        let isDragging = false;
+        let prevTouchX = 0;
+        let prevTouchY = 0;
+
+        function handleStart(e) {
+            isDragging = true;
+            prevTouchX = e.clientX || (e.touches && e.touches[0].clientX);
+            prevTouchY = e.clientY || (e.touches && e.touches[0].clientY);
+            vX = 0; vY = 0; // Stoppt die Auto-Drehung, wenn Naya den Bildschirm berührt
         }
 
-        window.addEventListener('pointerdown', handlePointerDown);
-        window.addEventListener('touchstart', handlePointerDown, {passive: true});
+        function handleMove(e) {
+            if (isDragging) {
+                let currentX = e.clientX || (e.touches && e.touches[0].clientX);
+                let currentY = e.clientY || (e.touches && e.touches[0].clientY);
+                
+                let dx = currentX - prevTouchX;
+                let dy = currentY - prevTouchY;
+                
+                // Geschwindigkeit basierend auf der Wisch-Bewegung
+                vY = dx * 0.003; 
+                vX = dy * 0.003; 
+                
+                prevTouchX = currentX;
+                prevTouchY = currentY;
+            }
+        }
 
-        // Animations-Schleife
+        function handleEnd() {
+            isDragging = false;
+        }
+
+        // Event Listener
+        window.addEventListener('pointerdown', handleStart);
+        window.addEventListener('pointermove', handleMove);
+        window.addEventListener('pointerup', handleEnd);
+        window.addEventListener('touchstart', handleStart, {passive: true});
+        window.addEventListener('touchmove', handleMove, {passive: true});
+        window.addEventListener('touchend', handleEnd);
+
+        // --- RENDER LOOP ---
         function animate() {
-            // Schwarzer Hintergrund mit extrem schwachem Ghosting-Effekt
-            ctx.fillStyle = 'rgba(3, 3, 3, 0.6)';
+            // Sehr dunkler, halbtransparenter Hintergrund für "Motion Trails" (verhindert Lag optisch)
+            ctx.fillStyle = 'rgba(3, 2, 2, 0.4)';
             ctx.fillRect(0, 0, width, height);
 
-            // Screen-Blending simuliert das Leuchten aus TouchDesigner
+            // Aufbau-Animation der Blume vorantreiben
+            if (globalProgress < 1.5) {
+                globalProgress += 0.005;
+            }
+
+            // Physik der Drehung anwenden
+            rotY += vY;
+            rotX += vX;
+            
+            // Limitierung der Hoch/Runter Drehung, damit man die Blume nicht komplett auf den Kopf stellt
+            rotX = Math.max(-1.5, Math.min(1.5, rotX));
+
+            if (!isDragging) {
+                // Reibung: Die Drehung wird sanft langsamer
+                vY *= 0.95;
+                vX *= 0.95;
+                // Wenn sie fast steht, dreht sie sich unendlich langsam von alleine weiter
+                if (Math.abs(vY) < 0.0005) vY += 0.0001;
+            }
+
+            // Screen-Blending für leuchtende 3D-Tiefenoptik
             ctx.globalCompositeOperation = 'screen';
 
-            flowers.forEach(flower => {
-                flower.update();
-                flower.draw(ctx);
-            });
+            // Vorberechnete Trigonometrie für maximale Performance
+            const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+
+            const centerX = width / 2;
+            const centerY = height / 2 + 50; // Etwas nach unten verschoben, da die Staubgefäße hoch sind
+
+            for (let i = 0; i < points.length; i++) {
+                let p = points[i];
+                p.update(globalProgress);
+
+                let x = p.currentX;
+                let y = p.currentY;
+                let z = p.currentZ;
+
+                // 3D Rotation um X-Achse (Hoch/Runter wischen)
+                let y1 = y * cosX - z * sinX;
+                let z1 = y * sinX + z * cosX;
+
+                // 3D Rotation um Y-Achse (Links/Rechts wischen)
+                let x2 = x * cosY + z1 * sinY;
+                let z2 = -x * sinY + z1 * cosY;
+                let y2 = y1;
+
+                // Perspektivische Projektion (Kamera-Linse)
+                let scale = fov / (fov + z2 + 200); 
+                
+                if (scale > 0) {
+                    let drawX = centerX + x2 * scale;
+                    let drawY = centerY + y2 * scale;
+                    
+                    // Punkte im Hintergrund sind dunkel und winzig, vorne leuchten sie kräftig
+                    ctx.fillStyle = p.color;
+                    let size = Math.max(0.5, 1.2 * scale);
+                    
+                    // Zeichnet ein winziges Quadrat (fillRect ist das absolut Schnellste für den Browser)
+                    ctx.fillRect(drawX, drawY, size, size);
+                }
+            }
 
             ctx.globalCompositeOperation = 'source-over';
             requestAnimationFrame(animate);
