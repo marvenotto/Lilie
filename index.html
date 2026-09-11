@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Für Naya - The 20 Majestic Lilies</title>
+    <title>Für Naya - The Majestic Pink Lily</title>
     <style>
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
@@ -85,51 +85,34 @@
         let isFullyBloomed = false;
         let isReblooming = false;
 
-        // --- 20 EINZIGARTIGE, HARMONISCHE FARBPALETTEN ---
+        // --- 20 EINZIGARTIGE FARBPALETTEN ---
         const palettes = [
-            // 0: Nayas Majestätische Start-Lilie (Kräftiges Rosa/Pink, tiefe Knospe, weiße Ränder)
-            { bud: {h: 330, s: 90, l: 25}, center: {h: 60, s: 80, l: 50}, mid: {h: 335, s: 85, l: 60}, edge: {h: 345, s: 20, l: 95}, speckle: {h: 335, s: 90, l: 25} },
-            // 1: Black Beauty (Dunkles Burgunder)
+            // 0: Nayas majestätische Start-Lilie! Extrem intensives Rosa, goldenes Zentrum, zarte Ränder.
+            { bud: {h: 335, s: 95, l: 25}, center: {h: 45, s: 100, l: 50}, mid: {h: 330, s: 100, l: 60}, edge: {h: 340, s: 25, l: 95}, speckle: {h: 330, s: 100, l: 20} },
+            
+            // Die 19 anderen harmonischen Wunder der Natur:
             { bud: {h: 350, s: 100, l: 15}, center: {h: 45, s: 90, l: 45}, mid: {h: 355, s: 95, l: 30}, edge: {h: 40, s: 50, l: 85}, speckle: {h: 350, s: 100, l: 10} },
-            // 2: Tigerlilie (Leuchtendes Orange)
             { bud: {h: 15, s: 90, l: 30}, center: {h: 50, s: 90, l: 50}, mid: {h: 25, s: 100, l: 55}, edge: {h: 35, s: 80, l: 75}, speckle: {h: 10, s: 100, l: 20} },
-            // 3: Casablanca (Reinweiß mit grüner Mitte)
             { bud: {h: 100, s: 50, l: 40}, center: {h: 110, s: 50, l: 65}, mid: {h: 0, s: 0, l: 92}, edge: {h: 0, s: 0, l: 100}, speckle: {h: 340, s: 80, l: 35} },
-            // 4: Sanfte Koralle / Pfirsich
             { bud: {h: 10, s: 80, l: 40}, center: {h: 55, s: 80, l: 60}, mid: {h: 15, s: 80, l: 65}, edge: {h: 25, s: 40, l: 90}, speckle: {h: 350, s: 80, l: 35} },
-            // 5: Mystisches Violett
             { bud: {h: 260, s: 80, l: 20}, center: {h: 220, s: 60, l: 45}, mid: {h: 290, s: 75, l: 45}, edge: {h: 310, s: 50, l: 80}, speckle: {h: 280, s: 100, l: 15} },
-            // 6: Golden Joy (Sonnengelb)
             { bud: {h: 40, s: 80, l: 30}, center: {h: 80, s: 70, l: 45}, mid: {h: 50, s: 95, l: 55}, edge: {h: 55, s: 60, l: 85}, speckle: {h: 20, s: 80, l: 35} },
-            // 7: Zarter Lavendel / Flieder
             { bud: {h: 270, s: 60, l: 30}, center: {h: 90, s: 50, l: 60}, mid: {h: 270, s: 50, l: 70}, edge: {h: 280, s: 20, l: 90}, speckle: {h: 270, s: 80, l: 30} },
-            // 8: Sunset (Warmes Rot-Orange)
             { bud: {h: 0, s: 90, l: 25}, center: {h: 45, s: 90, l: 50}, mid: {h: 10, s: 90, l: 55}, edge: {h: 45, s: 90, l: 65}, speckle: {h: 0, s: 100, l: 20} },
-            // 9: Blush (Extrem weiches Pastellrosa)
             { bud: {h: 340, s: 70, l: 40}, center: {h: 60, s: 60, l: 60}, mid: {h: 345, s: 60, l: 80}, edge: {h: 0, s: 0, l: 98}, speckle: {h: 340, s: 80, l: 40} },
-            // 10: Crimson (Karminrot)
             { bud: {h: 350, s: 100, l: 15}, center: {h: 50, s: 80, l: 50}, mid: {h: 355, s: 90, l: 40}, edge: {h: 355, s: 80, l: 50}, speckle: {h: 350, s: 100, l: 15} },
-            // 11: Lemon Lime (Frisches Grüngelb)
             { bud: {h: 90, s: 60, l: 40}, center: {h: 120, s: 70, l: 50}, mid: {h: 65, s: 90, l: 65}, edge: {h: 60, s: 40, l: 95}, speckle: {h: 80, s: 60, l: 30} },
-            // 12: Aprikose
             { bud: {h: 25, s: 80, l: 35}, center: {h: 55, s: 80, l: 55}, mid: {h: 30, s: 85, l: 70}, edge: {h: 40, s: 50, l: 90}, speckle: {h: 15, s: 90, l: 30} },
-            // 13: Raspberry Swirl (Himbeere)
             { bud: {h: 330, s: 90, l: 25}, center: {h: 60, s: 70, l: 55}, mid: {h: 335, s: 80, l: 55}, edge: {h: 0, s: 0, l: 95}, speckle: {h: 330, s: 90, l: 25} },
-            // 14: Midnight Plum (Tiefes Pflaumenblau)
             { bud: {h: 280, s: 90, l: 15}, center: {h: 60, s: 60, l: 50}, mid: {h: 290, s: 60, l: 35}, edge: {h: 295, s: 40, l: 75}, speckle: {h: 280, s: 100, l: 10} },
-            // 15: Tangerine (Kräftige Mandarine)
             { bud: {h: 20, s: 100, l: 30}, center: {h: 50, s: 90, l: 50}, mid: {h: 25, s: 95, l: 60}, edge: {h: 45, s: 90, l: 70}, speckle: {h: 15, s: 100, l: 25} },
-            // 16: Rose Gold
             { bud: {h: 350, s: 40, l: 35}, center: {h: 50, s: 60, l: 60}, mid: {h: 15, s: 50, l: 70}, edge: {h: 35, s: 30, l: 90}, speckle: {h: 350, s: 60, l: 30} },
-            // 17: Cherry Blossom (Kirschblüte)
             { bud: {h: 340, s: 80, l: 35}, center: {h: 60, s: 50, l: 65}, mid: {h: 345, s: 70, l: 75}, edge: {h: 345, s: 20, l: 95}, speckle: {h: 340, s: 80, l: 35} },
-            // 18: Ruby Red (Rubinrot)
             { bud: {h: 355, s: 100, l: 20}, center: {h: 55, s: 80, l: 50}, mid: {h: 350, s: 95, l: 45}, edge: {h: 345, s: 80, l: 65}, speckle: {h: 355, s: 100, l: 15} },
-            // 19: Champagner (Edles Beige/Creme)
             { bud: {h: 35, s: 50, l: 30}, center: {h: 60, s: 60, l: 60}, mid: {h: 40, s: 40, l: 80}, edge: {h: 0, s: 0, l: 98}, speckle: {h: 30, s: 60, l: 40} }
         ];
         
-        // Startet IMMER mit der majestätischen rosa/pinken Blume (Index 0)
+        // Startet IMMER mit der majestätischen rosa Blume (Index 0)
         let currentPaletteIndex = 0;
 
         function lerpColor(c1, c2, t) {
@@ -222,7 +205,7 @@
                         let cy = pyClosed;
                         cx += nX*0.5; cy += nY*0.5; cz += nZ*0.5;
 
-                        // Farbverlauf (Offen)
+                        // Farbverlauf für die offene Blüte
                         let colorBlend = Math.min(1, t * 0.8 + absW * 0.4); 
                         let openColor;
                         
@@ -260,7 +243,7 @@
                 }
             });
 
-            // DIE 6 STAUBGEFÄßE & 1 STEMPEL
+            // DIE 6 STAUBGEFÄßE & 1 STEMPEL (Kräftig, golden und majestätisch)
             for (let s = 0; s < 7; s++) { 
                 let isPistil = (s === 6);
                 let angle = isPistil ? 0 : (Math.PI * 2 / 6) * s + (Math.PI / 6) + randomTwist;
@@ -291,16 +274,17 @@
                         if(t > 0.95) { 
                             ox += (Math.random()-0.5)*8; 
                             oz += (Math.random()-0.5)*8; 
-                            c = { h: 70, s: 100, l: 85 }; 
+                            c = { h: 60, s: 100, l: 80 }; // Strahlend gold-grüne Stempelspitze
                         }
                     } else {
                         if (t > 0.92) {
                             ox += (Math.random() - 0.5) * 16; 
                             oy += (Math.random() - 0.5) * 25;
                             oz += (Math.random() - 0.5) * 16;
-                            c = { h: 20, s: 100, l: 45 }; 
+                            // Majestätisches Gold-Orange für alle Pollen ("goldene Knospen")
+                            c = { h: 38, s: 100, l: 50 }; 
                         } else {
-                            c = { h: 60, s: 70, l: 75 }; 
+                            c = { h: 50, s: 70, l: 75 }; 
                         }
                     }
                     
@@ -398,7 +382,7 @@
             if (currentBloom > 1) currentBloom = 1;
 
             if (isReblooming && currentBloom === 0) {
-                // Wählt eine ZUFÄLLIGE Farbe aus den 20 Paletten (außer der, die gerade da war!)
+                // Zufällige Auswahl einer der 20 Paletten (sodass sich nichts direkt wiederholt)
                 let nextIndex;
                 do {
                     nextIndex = Math.floor(Math.random() * palettes.length);
