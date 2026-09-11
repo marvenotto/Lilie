@@ -85,28 +85,24 @@
         let isFullyBloomed = false;
         let isReblooming = false;
 
-        // --- NEUE 3-PUNKT FARBPALETTEN (Zentrum -> Mitte -> Rand) ---
+        // --- HOCHKOMPLEXE FARBPALETTEN (Mit Knospen-Farbe!) ---
         const palettes = [
-            // 0: Die Start-Blume (Rosa/Pink)
-            { center: {h: 55, s: 70, l: 55}, mid: {h: 335, s: 80, l: 65}, edge: {h: 345, s: 30, l: 90}, speckle: {h: 335, s: 90, l: 30} },
-            // 1: Dunkelrot / Burgunder (Black Beauty)
-            { center: {h: 45, s: 80, l: 50}, mid: {h: 350, s: 90, l: 30}, edge: {h: 40, s: 40, l: 85}, speckle: {h: 350, s: 100, l: 15} },
-            // 2: Leuchtendes Orange (Tigerlilie)
-            { center: {h: 40, s: 90, l: 50}, mid: {h: 22, s: 95, l: 55}, edge: {h: 30, s: 80, l: 75}, speckle: {h: 10, s: 90, l: 20} },
-            // 3: Sonnengelb (Golden Joy)
-            { center: {h: 80, s: 70, l: 45}, mid: {h: 50, s: 95, l: 55}, edge: {h: 55, s: 60, l: 85}, speckle: {h: 20, s: 80, l: 35} },
-            // 4: Sanfter Pfirsich / Lachs
-            { center: {h: 50, s: 80, l: 60}, mid: {h: 12, s: 75, l: 65}, edge: {h: 25, s: 40, l: 85}, speckle: {h: 350, s: 70, l: 40} },
-            // 5: Mystisches Dunkelmagenta / Violett
-            { center: {h: 250, s: 60, l: 45}, mid: {h: 310, s: 70, l: 40}, edge: {h: 320, s: 40, l: 80}, speckle: {h: 290, s: 90, l: 20} },
-            // 6: Reinweiß (Casablanca)
-            { center: {h: 110, s: 40, l: 65}, mid: {h: 0, s: 0, l: 92}, edge: {h: 0, s: 0, l: 98}, speckle: {h: 340, s: 80, l: 35} }
+            // 0: Die Naya-Startblume (Rosa/Pink mit weißem Rand und tief magenta Knospe)
+            { bud: {h: 330, s: 90, l: 25}, center: {h: 60, s: 80, l: 50}, mid: {h: 335, s: 85, l: 65}, edge: {h: 345, s: 20, l: 95}, speckle: {h: 335, s: 90, l: 25} },
+            // 1: Dunkelrot / Black Beauty (Knospe fast schwarz-rot)
+            { bud: {h: 350, s: 100, l: 15}, center: {h: 45, s: 90, l: 45}, mid: {h: 355, s: 95, l: 30}, edge: {h: 40, s: 50, l: 85}, speckle: {h: 350, s: 100, l: 10} },
+            // 2: Leuchtendes Tiger-Orange (Knospe dunkles Rostbraun)
+            { bud: {h: 15, s: 90, l: 30}, center: {h: 50, s: 90, l: 50}, mid: {h: 25, s: 100, l: 55}, edge: {h: 35, s: 80, l: 75}, speckle: {h: 10, s: 100, l: 20} },
+            // 3: Casablanca Reinweiß (Knospe zartgrün)
+            { bud: {h: 100, s: 50, l: 40}, center: {h: 110, s: 50, l: 65}, mid: {h: 0, s: 0, l: 90}, edge: {h: 0, s: 0, l: 100}, speckle: {h: 340, s: 80, l: 35} },
+            // 4: Sanfter Pfirsich / Lachs (Knospe tiefes Korall)
+            { bud: {h: 10, s: 80, l: 40}, center: {h: 55, s: 80, l: 60}, mid: {h: 15, s: 80, l: 65}, edge: {h: 25, s: 40, l: 90}, speckle: {h: 350, s: 80, l: 35} },
+            // 5: Mystisches Dunkelviolett (Knospe nachtblau/violett)
+            { bud: {h: 260, s: 80, l: 20}, center: {h: 220, s: 60, l: 45}, mid: {h: 290, s: 75, l: 45}, edge: {h: 310, s: 50, l: 80}, speckle: {h: 280, s: 100, l: 15} }
         ];
         
-        // Startet immer mit Index 0 (Der rosa/pinken Blume!)
         let currentPaletteIndex = 0;
 
-        // Funktion für fließende Farbübergänge
         function lerpColor(c1, c2, t) {
             return {
                 h: c1.h + (c2.h - c1.h) * t,
@@ -116,11 +112,17 @@
         }
 
         class AnimatedPoint {
-            constructor(cx, cy, cz, ox, oy, oz, color, bloomDelay) {
+            constructor(cx, cy, cz, ox, oy, oz, hc, sc, lc, ho, so, lo, alpha, bloomDelay) {
+                // Koordinaten
                 this.cx = cx; this.cy = cy; this.cz = cz; 
                 this.ox = ox; this.oy = oy; this.oz = oz; 
                 this.x = cx; this.y = cy; this.z = cz;
-                this.color = color;
+                
+                // FARBEN (Closed vs Open)
+                this.hc = hc; this.sc = sc; this.lc = lc;
+                this.ho = ho; this.so = so; this.lo = lo;
+                this.alpha = alpha;
+                this.color = `hsla(${hc}, ${sc}%, ${lc}%, ${alpha})`;
                 
                 this.bloomDelay = bloomDelay; 
                 this.bloomSpeed = 0.8 + Math.random() * 0.4; 
@@ -130,9 +132,16 @@
                 let localBloom = Math.max(0, Math.min(1, (globalBloom - this.bloomDelay) * this.bloomSpeed * 1.5));
                 let ease = localBloom < 0.5 ? 2 * localBloom * localBloom : 1 - Math.pow(-2 * localBloom + 2, 2) / 2;
 
+                // Position interpolieren
                 this.x = this.cx + (this.ox - this.cx) * ease;
                 this.y = this.cy + (this.oy - this.cy) * ease;
                 this.z = this.cz + (this.oz - this.cz) * ease;
+
+                // FARBE IN ECHTZEIT INTERPOLIEREN!
+                let h = this.hc + (this.ho - this.hc) * ease;
+                let s = this.sc + (this.so - this.sc) * ease;
+                let l = this.lc + (this.lo - this.lc) * ease;
+                this.color = `hsla(${h}, ${s}%, ${l}%, ${this.alpha})`;
             }
         }
 
@@ -161,10 +170,8 @@
                         
                         let radiusOpen = t * layer.radius;
                         let pyOpen = -Math.sin(t * Math.PI * 0.7) * layer.lift + Math.pow(t, 2.5) * layer.drop;
-                        
                         let widthOpen = Math.sin(t * Math.PI) * (1 - t * 0.15) * 85;
                         let ruffles = Math.sin(t * 25) * Math.sin(w * Math.PI) * (4 * t); 
-                        
                         let midrib = Math.max(0, 1 - absW * 5) * 12 * Math.sin(t * Math.PI);
                         pyOpen += midrib;
 
@@ -185,58 +192,68 @@
                         let lateralClosed = w * widthClosed;
                         
                         let closedAngle = baseAngle + (t * Math.PI * 0.5); 
-
                         let cx = Math.cos(closedAngle) * radiusClosed - Math.sin(closedAngle) * lateralClosed;
                         let cz = Math.sin(closedAngle) * radiusClosed + Math.cos(closedAngle) * lateralClosed;
                         let cy = pyClosed;
                         cx += nX*0.5; cy += nY*0.5; cz += nZ*0.5;
 
-                        // --- DER NEUE 3-PUNKT FARBVERLAUF ---
-                        // Mischt fließend vom Zentrum zur Hauptfarbe (Mitte), und dann sanft zu den Rändern
+                        // --- FARB-BERECHNUNG ---
                         let colorBlend = Math.min(1, t * 0.8 + absW * 0.4); 
-                        let c;
+                        let openColor;
                         
+                        // Der atemberaubende, weiche Farbverlauf der offenen Blüte
                         if (colorBlend < 0.35) {
-                            // Übergang Trichter (Grün/Gelb) zur Hauptfarbe
                             let blendT = colorBlend / 0.35;
-                            c = lerpColor(theme.center, theme.mid, blendT);
+                            openColor = lerpColor(theme.center, theme.mid, blendT);
                         } else {
-                            // Übergang Hauptfarbe zum weißen/hellen Rand
                             let blendT = (colorBlend - 0.35) / 0.65;
-                            c = lerpColor(theme.mid, theme.edge, blendT);
+                            openColor = lerpColor(theme.mid, theme.edge, blendT);
                         }
                         
-                        if (layerIndex === 0) c.l -= 4; // Äußere Blätter für mehr 3D-Tiefe minimal abdunkeln
-                        let color = `hsla(${c.h}, ${c.s}%, ${c.l}%, 0.85)`;
+                        if (layerIndex === 0) openColor.l -= 4; 
 
-                        // Natürliche, harmonisierende Sommersprossen
+                        // Die intensive Knospenfarbe (Besonders außen dunkel, innen heller)
+                        let closedColor = { ...theme.bud };
+                        if (layerIndex === 1) {
+                            // Innere Blätter sind in der Knospe etwas heller/pinker
+                            closedColor = lerpColor(theme.bud, theme.mid, 0.5);
+                        }
+                        // Wenn der Punkt an der Spitze ist, wird die Knospe satter
+                        closedColor.l += (1 - t) * 15; 
+
+                        let alpha = 0.85;
+
+                        // Kräftige Sommersprossen (Bleiben gleich)
                         if (t > 0.25 && t < 0.65 && absW < 0.45) {
                             if (Math.random() < 0.04) {
-                                color = `hsla(${theme.speckle.h}, ${theme.speckle.s}%, ${theme.speckle.l}%, 0.95)`;
+                                openColor = { ...theme.speckle };
+                                closedColor = { ...theme.speckle };
+                                alpha = 0.95;
                                 oy -= 2; cy -= 1; 
                             }
                         }
 
                         let individualDelay = layer.delay + (Math.random() * 0.1);
-                        points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, color, individualDelay));
+                        points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, closedColor.h, closedColor.s, closedColor.l, openColor.h, openColor.s, openColor.l, alpha, individualDelay));
                     }
                 }
             });
 
-            // DIE 6 STAUBGEFÄßE & 1 MAJESTÄTISCHER STEMPEL
+            // --- DIE 6 KRÄFTIGEN STAUBGEFÄßE & 1 STEMPEL ---
             for (let s = 0; s < 7; s++) { 
                 let isPistil = (s === 6);
                 let angle = isPistil ? 0 : (Math.PI * 2 / 6) * s + (Math.PI / 6) + randomTwist;
                 
-                let numPoints = isPistil ? 350 : 150; 
+                let numPoints = isPistil ? 400 : 250; 
                 
                 for(let i = 0; i < numPoints; i++) {
                     let t = Math.random();
                     
-                    let radiusOpen = isPistil ? (t * 15) : (t * 120);
-                    let pyOpen = -Math.sin(t * Math.PI * (isPistil ? 0.9 : 0.8)) * (isPistil ? 180 : 140);
+                    let radiusOpen = isPistil ? (t * 15) : (t * 125);
+                    let pyOpen = -Math.sin(t * Math.PI * (isPistil ? 0.9 : 0.8)) * (isPistil ? 180 : 150);
                     
-                    let thickness = isPistil ? 1.5 : 2.5;
+                    // Deutlich sichtbare, kräftigere Fäden
+                    let thickness = isPistil ? 2.5 : 2.0;
                     let ox = Math.cos(angle) * radiusOpen + (Math.random()-0.5)*thickness;
                     let oz = Math.sin(angle) * radiusOpen + (Math.random()-0.5)*thickness;
                     let oy = pyOpen + (Math.random()-0.5)*thickness;
@@ -245,30 +262,34 @@
                     let cz = Math.sin(angle) * (t * 5);
                     let cy = -t * (isPistil ? 180 : 150);
 
-                    let color;
+                    let c;
                     if (isPistil) {
-                        let h = 130 - (t * 50); 
-                        let l = 40 + (t * 40);  
-                        color = `hsla(${h}, 90%, ${l}%, 1)`;
+                        let h = 130 - (t * 60); // Kräftiges Grün nach Gelb
+                        let l = 35 + (t * 50);  // Sehr hoher Kontrast
+                        c = { h: h, s: 95, l: l };
                         
-                        if(t > 0.96) { 
-                            ox += (Math.random()-0.5)*7; 
-                            oz += (Math.random()-0.5)*7; 
-                            color = `hsla(60, 100%, 80%, 1)`; 
+                        if(t > 0.95) { 
+                            ox += (Math.random()-0.5)*8; 
+                            oz += (Math.random()-0.5)*8; 
+                            c = { h: 70, s: 100, l: 85 }; // Strahlende Kuppe
                         }
                     } else {
                         if (t > 0.92) {
-                            ox += (Math.random() - 0.5) * 10; 
-                            oy += (Math.random() - 0.5) * 16;
-                            oz += (Math.random() - 0.5) * 10;
-                            // Pollenfarbe passt sich leicht dem Thema an, bleibt aber meist orange/rost
-                            color = `hsla(25, 95%, 50%, 1)`; 
+                            // RIESIGE, majestätische Pollen-Köpfe
+                            ox += (Math.random() - 0.5) * 16; 
+                            oy += (Math.random() - 0.5) * 25;
+                            oz += (Math.random() - 0.5) * 16;
+                            c = { h: 20, s: 100, l: 45 }; // Tiefes, extrem gesättigtes Orange-Rost
                         } else {
-                            color = `hsla(50, 40%, 85%, 0.6)`; 
+                            // Leuchtendere Fäden
+                            c = { h: 60, s: 70, l: 75 }; 
                         }
                     }
                     
-                    points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, color, 0.4));
+                    // Pollen sind im geschlossenen Zustand blasser, blühen dann farblich auf
+                    let cClosed = { h: c.h, s: c.s * 0.5, l: c.l * 0.8 };
+                    
+                    points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, cClosed.h, cClosed.s, cClosed.l, c.h, c.s, c.l, 1, 0.4));
                 }
             }
         }
@@ -353,18 +374,17 @@
             if (currentBloom < targetBloom) {
                 currentBloom += 0.005; 
             } else if (currentBloom > targetBloom) {
-                currentBloom -= 0.012; 
+                currentBloom -= 0.015; // Schließt sich flüssig und schnell
             }
 
             if (currentBloom < 0) currentBloom = 0;
             if (currentBloom > 1) currentBloom = 1;
 
             if (isReblooming && currentBloom === 0) {
-                // Schaltet zur nächsten harmonischen Farbpalette
                 currentPaletteIndex = (currentPaletteIndex + 1) % palettes.length;
                 generateElegantLily();
                 targetBloom = 1; 
-                setTimeout(() => { isReblooming = false; }, 500); 
+                setTimeout(() => { isReblooming = false; }, 400); 
             }
 
             if (currentBloom === 1 && !isFullyBloomed && !isReblooming) {
