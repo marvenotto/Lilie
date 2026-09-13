@@ -83,17 +83,33 @@
 
         const fov = 650; 
         let points = [];
-        let stars = []; // Der neue Sternenhimmel
+        let stars = []; // Array für den Sternenhimmel
         
         let targetBloom = 0; 
         let currentBloom = 0;
         let isFullyBloomed = false;
         let isReblooming = false;
 
+        // --- DER STERNENHIMMEL (Erzeugt Tiefe im Hintergrund) ---
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < 200; i++) {
+                stars.push({
+                    x: (Math.random() - 0.5) * 2500,
+                    y: (Math.random() - 0.5) * 2500,
+                    z: (Math.random() - 0.5) * 2500,
+                    size: Math.random() * 1.5 + 0.3,
+                    speed: Math.random() * 0.002 + 0.001,
+                    offset: Math.random() * Math.PI * 2
+                });
+            }
+        }
+        initStars(); // Diese Zeile hat vorhin gefehlt!
+
         // --- 20 EINZIGARTIGE FARBPALETTEN ---
         const palettes = [
-            // 0: Nayas majestätische Start-Lilie (Kräftiges Rosa/Pink, goldenes Zentrum)
-            { bud: {h: 335, s: 95, l: 25}, center: {h: 45, s: 100, l: 50}, mid: {h: 330, s: 100, l: 60}, edge: {h: 340, s: 25, l: 95}, speckle: {h: 330, s: 100, l: 20} },
+            // 0: Nayas majestätische Start-Lilie (Knospe leicht heller gemacht, damit man sie gut sieht!)
+            { bud: {h: 335, s: 95, l: 35}, center: {h: 45, s: 100, l: 50}, mid: {h: 330, s: 100, l: 60}, edge: {h: 340, s: 25, l: 95}, speckle: {h: 330, s: 100, l: 20} },
             
             { bud: {h: 350, s: 100, l: 15}, center: {h: 45, s: 90, l: 45}, mid: {h: 355, s: 95, l: 30}, edge: {h: 40, s: 50, l: 85}, speckle: {h: 350, s: 100, l: 10} },
             { bud: {h: 15, s: 90, l: 30}, center: {h: 50, s: 90, l: 50}, mid: {h: 25, s: 100, l: 55}, edge: {h: 35, s: 80, l: 75}, speckle: {h: 10, s: 100, l: 20} },
@@ -126,13 +142,360 @@
             };
         }
 
-        // --- DER STERNENHIMMEL (Für die Tiefe) ---
-        function initStars() {
-            stars = [];
-            for (let i = 0; i < 200; i++) {
-                stars.push({
-                    // Verteilt in einem riesigen 3D-Raum
-                    x: (Math.random() - 0.5) * 2500,
-                    y: (Math.random() - 0.5) * 2500,
-                    z: (Math.random() - 0.5) * 2500,
-                    size: Math.random() *
+        class AnimatedPoint {
+            constructor(cx, cy, cz, ox, oy, oz, hc, sc, lc, ho, so, lo, alpha, bloomDelay) {
+                this.cx = cx; this.cy = cy; this.cz = cz; 
+                this.ox = ox; this.oy = oy; this.oz = oz; 
+                this.x = cx; this.y = cy; this.z = cz;
+                
+                this.hc = hc; this.sc = sc; this.lc = lc;
+                this.ho = ho; this.so = so; this.lo = lo;
+                this.alpha = alpha;
+                this.color = `hsla(${hc}, ${sc}%, ${lc}%, ${alpha})`;
+                
+                this.bloomDelay = bloomDelay; 
+                this.bloomSpeed = 0.8 + Math.random() * 0.4; 
+            }
+
+            update(globalBloom) {
+                let localBloom = Math.max(0, Math.min(1, (globalBloom - this.bloomDelay) * this.bloomSpeed * 1.5));
+                let ease = localBloom < 0.5 ? 2 * localBloom * localBloom : 1 - Math.pow(-2 * localBloom + 2, 2) / 2;
+
+                this.x = this.cx + (this.ox - this.cx) * ease;
+                this.y = this.cy + (this.oy - this.cy) * ease;
+                this.z = this.cz + (this.oz - this.cz) * ease;
+
+                let h = this.hc + (this.ho - this.hc) * ease;
+                let s = this.sc + (this.so - this.sc) * ease;
+                let l = this.lc + (this.lo - this.lc) * ease;
+                this.color = `hsla(${h}, ${s}%, ${l}%, ${this.alpha})`;
+            }
+        }
+
+        function generateElegantLily() {
+            points = [];
+            const theme = palettes[currentPaletteIndex];
+            
+            let randomLiftMod = 0.85 + Math.random() * 0.3;
+            let randomDropMod = 0.6 + Math.random() * 0.6;
+            let randomTwist = (Math.random() - 0.5) * 0.35;
+            let petalLengthMod = 0.9 + Math.random() * 0.2;
+
+            const layers = [
+                { count: 3, radius: 260 * petalLengthMod, lift: 90 * randomLiftMod, drop: 45 * randomDropMod, delay: 0.0, points: 4500, offsetAngle: 0 },
+                { count: 3, radius: 250 * petalLengthMod, lift: 115 * randomLiftMod, drop: 25 * randomDropMod, delay: 0.15, points: 4500, offsetAngle: Math.PI / 3 }
+            ];
+
+            layers.forEach((layer, layerIndex) => {
+                for (let p = 0; p < layer.count; p++) {
+                    let baseAngle = (Math.PI * 2 / layer.count) * p + layer.offsetAngle + randomTwist;
+
+                    for (let i = 0; i < layer.points; i++) {
+                        let t = Math.random(); 
+                        let w = (Math.random() - 0.5) * 2; 
+                        let absW = Math.abs(w);
+                        
+                        let radiusOpen = t * layer.radius;
+                        let pyOpen = -Math.sin(t * Math.PI * 0.7) * layer.lift + Math.pow(t, 2.5) * layer.drop;
+                        let widthOpen = Math.sin(t * Math.PI) * (1 - t * 0.15) * 85;
+                        let ruffles = Math.sin(t * 25) * Math.sin(w * Math.PI) * (4 * t); 
+                        let midrib = Math.max(0, 1 - absW * 5) * 12 * Math.sin(t * Math.PI);
+                        pyOpen += midrib;
+
+                        let lateralOpen = w * widthOpen + ruffles;
+                        
+                        let ox = Math.cos(baseAngle) * radiusOpen - Math.sin(baseAngle) * lateralOpen;
+                        let oz = Math.sin(baseAngle) * radiusOpen + Math.cos(baseAngle) * lateralOpen;
+                        let oy = pyOpen;
+                        
+                        let nX = (Math.random() - 0.5) * 3.5;
+                        let nY = (Math.random() - 0.5) * 3.5;
+                        let nZ = (Math.random() - 0.5) * 3.5;
+                        ox += nX; oy += nY; oz += nZ;
+
+                        let radiusClosed = t * 35 + Math.sin(t * Math.PI) * 20; 
+                        let pyClosed = -t * (240 - layerIndex * 15); 
+                        let widthClosed = Math.sin(t * Math.PI) * 25;
+                        let lateralClosed = w * widthClosed;
+                        
+                        let closedAngle = baseAngle + (t * Math.PI * 0.5); 
+                        let cx = Math.cos(closedAngle) * radiusClosed - Math.sin(closedAngle) * lateralClosed;
+                        let cz = Math.sin(closedAngle) * radiusClosed + Math.cos(closedAngle) * lateralClosed;
+                        let cy = pyClosed;
+                        cx += nX*0.5; cy += nY*0.5; cz += nZ*0.5;
+
+                        let colorBlend = Math.min(1, t * 0.8 + absW * 0.4); 
+                        let openColor;
+                        
+                        if (colorBlend < 0.35) {
+                            let blendT = colorBlend / 0.35;
+                            openColor = lerpColor(theme.center, theme.mid, blendT);
+                        } else {
+                            let blendT = (colorBlend - 0.35) / 0.65;
+                            openColor = lerpColor(theme.mid, theme.edge, blendT);
+                        }
+                        
+                        if (layerIndex === 0) openColor.l -= 4; 
+
+                        let closedColor = { ...theme.bud };
+                        if (layerIndex === 1) {
+                            closedColor = lerpColor(theme.bud, theme.mid, 0.5);
+                        }
+                        closedColor.l += (1 - t) * 15; 
+
+                        let alpha = 0.85;
+
+                        if (t > 0.25 && t < 0.65 && absW < 0.45) {
+                            if (Math.random() < 0.04) {
+                                openColor = { ...theme.speckle };
+                                closedColor = { ...theme.speckle };
+                                alpha = 0.95;
+                                oy -= 2; cy -= 1; 
+                            }
+                        }
+
+                        let individualDelay = layer.delay + (Math.random() * 0.1);
+                        points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, closedColor.h, closedColor.s, closedColor.l, openColor.h, openColor.s, openColor.l, alpha, individualDelay));
+                    }
+                }
+            });
+
+            for (let s = 0; s < 7; s++) { 
+                let isPistil = (s === 6);
+                let angle = isPistil ? 0 : (Math.PI * 2 / 6) * s + (Math.PI / 6) + randomTwist;
+                
+                let numPoints = isPistil ? 400 : 250; 
+                
+                for(let i = 0; i < numPoints; i++) {
+                    let t = Math.random();
+                    
+                    let radiusOpen = isPistil ? (t * 15) : (t * 125);
+                    let pyOpen = -Math.sin(t * Math.PI * (isPistil ? 0.9 : 0.8)) * (isPistil ? 180 : 150);
+                    
+                    let thickness = isPistil ? 2.5 : 2.0;
+                    let ox = Math.cos(angle) * radiusOpen + (Math.random()-0.5)*thickness;
+                    let oz = Math.sin(angle) * radiusOpen + (Math.random()-0.5)*thickness;
+                    let oy = pyOpen + (Math.random()-0.5)*thickness;
+
+                    let cx = Math.cos(angle) * (t * 5);
+                    let cz = Math.sin(angle) * (t * 5);
+                    let cy = -t * (isPistil ? 180 : 150);
+
+                    let c;
+                    if (isPistil) {
+                        let h = 130 - (t * 60); 
+                        let l = 35 + (t * 50);  
+                        c = { h: h, s: 95, l: l };
+                        
+                        if(t > 0.95) { 
+                            ox += (Math.random()-0.5)*8; 
+                            oz += (Math.random()-0.5)*8; 
+                            c = { h: 60, s: 100, l: 85 }; 
+                        }
+                    } else {
+                        if (t > 0.92) {
+                            ox += (Math.random() - 0.5) * 16; 
+                            oy += (Math.random() - 0.5) * 25;
+                            oz += (Math.random() - 0.5) * 16;
+                            c = { h: 38, s: 100, l: 50 }; 
+                        } else {
+                            c = { h: 50, s: 70, l: 75 }; 
+                        }
+                    }
+                    
+                    let cClosed = { h: c.h, s: c.s * 0.5, l: c.l * 0.8 };
+                    
+                    points.push(new AnimatedPoint(cx, cy, cz, ox, oy, oz, cClosed.h, cClosed.s, cClosed.l, c.h, c.s, c.l, 1, 0.4));
+                }
+            }
+        }
+
+        generateElegantLily();
+
+        // --- HANDY OPTIMIERTE STEUERUNG (INVERTIERT) ---
+        let rotX = -0.2; 
+        let rotY = 0;
+        let vX = 0;
+        let vY = 0.003; 
+        
+        let isDragging = false;
+        let prevTouchX = 0;
+        let prevTouchY = 0;
+        let lastTapTime = 0;
+
+        function triggerRebloom() {
+            if (isReblooming || currentBloom < 0.8) return; 
+            
+            isReblooming = true;
+            targetBloom = 0; 
+            hint.style.opacity = '0';
+        }
+
+        function getPos(e) {
+            if (e.touches && e.touches.length > 0) {
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function handlePointerDown(e) {
+            let now = Date.now();
+            let pos = getPos(e);
+
+            if (now - lastTapTime < 400) { 
+                triggerRebloom();
+                lastTapTime = 0; 
+                return; 
+            }
+            lastTapTime = now;
+
+            if (targetBloom === 0 && !isReblooming) {
+                targetBloom = 1;
+                hint.style.opacity = '0';
+            }
+
+            isDragging = true;
+            prevTouchX = pos.x;
+            prevTouchY = pos.y;
+            vX = 0; vY = 0; 
+        }
+
+        function handlePointerMove(e) {
+            if (isDragging) {
+                let pos = getPos(e);
+                // INVERTIERTE RICHTUNG (Minuszeichen sorgt für natürliches Kamera-Gefühl)
+                vY = -(pos.x - prevTouchX) * 0.005; 
+                vX = -(pos.y - prevTouchY) * 0.005; 
+                prevTouchX = pos.x;
+                prevTouchY = pos.y;
+            }
+        }
+
+        function handlePointerUp() {
+            isDragging = false;
+        }
+
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handlePointerDown(e); }, {passive: false});
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); handlePointerMove(e); }, {passive: false});
+        canvas.addEventListener('touchend', (e) => { e.preventDefault(); handlePointerUp(); }, {passive: false});
+        
+        canvas.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+
+        // --- RENDER LOOP ---
+        function animate() {
+            ctx.fillStyle = 'rgba(2, 1, 2, 0.4)'; 
+            ctx.fillRect(0, 0, width, height);
+
+            if (currentBloom < targetBloom) {
+                currentBloom += 0.005; 
+            } else if (currentBloom > targetBloom) {
+                currentBloom -= 0.015; 
+            }
+
+            if (currentBloom < 0) currentBloom = 0;
+            if (currentBloom > 1) currentBloom = 1;
+
+            if (isReblooming && currentBloom === 0) {
+                let nextIndex;
+                do {
+                    nextIndex = Math.floor(Math.random() * palettes.length);
+                } while (nextIndex === currentPaletteIndex);
+                
+                currentPaletteIndex = nextIndex;
+                generateElegantLily();
+                targetBloom = 1; 
+                setTimeout(() => { isReblooming = false; }, 400); 
+            }
+
+            if (currentBloom === 1 && !isFullyBloomed && !isReblooming) {
+                isFullyBloomed = true;
+                hint.innerHTML = "Wische, um sie zu betrachten";
+                hint.style.opacity = '1';
+                hint.style.animation = 'none'; 
+            }
+
+            rotY += vY;
+            rotX += vX;
+            rotX = Math.max(-1.0, Math.min(1.0, rotX)); 
+
+            if (!isDragging) {
+                vY *= 0.94;
+                vX *= 0.94;
+                if (Math.abs(vY) < 0.0005) vY += 0.002; 
+            }
+
+            let breathX = Math.sin(Date.now() * 0.001) * 0.02;
+            let breathY = Math.cos(Date.now() * 0.0008) * 0.02;
+
+            const cosX = Math.cos(rotX + breathX), sinX = Math.sin(rotX + breathX);
+            const cosY = Math.cos(rotY + breathY), sinY = Math.sin(rotY + breathY);
+
+            const centerX = width / 2;
+            const centerY = height / 2 + 50; 
+
+            // 1. STERNENHIMMEL IM HINTERGRUND ZEICHNEN
+            for (let i = 0; i < stars.length; i++) {
+                let s = stars[i];
+                
+                // Sterne drehen sich im 3D-Raum mit
+                let y1 = s.y * cosX - s.z * sinX;
+                let z1 = s.y * sinX + s.z * cosX;
+                let x2 = s.x * cosY + z1 * sinY;
+                let z2 = -s.x * sinY + z1 * cosY;
+                
+                // Ein bisschen weiter hinten projizieren (Tiefeneffekt)
+                let scale = fov / (fov + z2 + 800); 
+                
+                if (scale > 0) {
+                    let drawX = centerX + x2 * scale;
+                    let drawY = centerY + y1 * scale;
+                    
+                    // Sanftes Blinken
+                    let alpha = 0.2 + Math.sin(Date.now() * s.speed + s.offset) * 0.25; 
+                    if (alpha < 0) alpha = 0;
+                    
+                    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                    let size = s.size * scale;
+                    ctx.fillRect(drawX, drawY, size, size);
+                }
+            }
+
+            ctx.globalCompositeOperation = 'screen';
+
+            // 2. DIE LILIE ZEICHNEN
+            for (let i = 0; i < points.length; i++) {
+                let p = points[i];
+                p.update(currentBloom);
+
+                let x = p.x;
+                let y = p.y;
+                let z = p.z;
+
+                let y1 = y * cosX - z * sinX;
+                let z1 = y * sinX + z * cosX;
+                let x2 = x * cosY + z1 * sinY;
+                let z2 = -x * sinY + z1 * cosY;
+                let y2 = y1;
+
+                let scale = fov / (fov + z2 + 350); 
+                
+                if (scale > 0) {
+                    let drawX = centerX + x2 * scale;
+                    let drawY = centerY + y2 * scale;
+                    
+                    ctx.fillStyle = p.color;
+                    let size = Math.max(0.6, 1.8 * scale); 
+                    ctx.fillRect(drawX, drawY, size, size);
+                }
+            }
+
+            ctx.globalCompositeOperation = 'source-over';
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
