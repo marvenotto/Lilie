@@ -55,7 +55,7 @@
 <body>
     
     <div class="greeting-container">
-        <div class="greeting">Happy Birthday, Naya</div>
+        <div class="greeting">Happy Birthday Naya</div>
         <div class="sub-greeting">Von Marven</div>
     </div>
     
@@ -84,6 +84,7 @@
         const fov = 650; 
         let points = [];
         let stars = []; // Array für den Sternenhimmel
+        let shootingStars = []; // Array für Sternschnuppen
         
         let targetBloom = 0; 
         let currentBloom = 0;
@@ -93,7 +94,7 @@
         // --- DER STERNENHIMMEL (Erzeugt Tiefe im Hintergrund) ---
         function initStars() {
             stars = [];
-            for (let i = 0; i < 200; i++) {
+            for (let i = 0; i < 300; i++) { // Minimal erhöht auf 300
                 stars.push({
                     x: (Math.random() - 0.5) * 2500,
                     y: (Math.random() - 0.5) * 2500,
@@ -104,11 +105,93 @@
                 });
             }
         }
-        initStars(); // Diese Zeile hat vorhin gefehlt!
+        initStars();
+
+        // --- STERNSCHNUPPEN (Seltene Ereignisse) ---
+        class ShootingStar {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.startX = (Math.random() - 0.5) * 2500;
+                this.startY = (Math.random() - 0.5) * 2500;
+                this.startZ = (Math.random() - 0.5) * 200 + (fov + 800); // Weit entfernt
+                this.currentX = this.startX;
+                this.currentY = this.startY;
+                this.currentZ = this.startZ;
+                
+                let angle = Math.random() * Math.PI * 2;
+                let speed = Math.random() * 15 + 10;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.vz = -speed; // Bewegt sich auf den Betrachter zu
+                
+                this.length = Math.random() * 80 + 40;
+                this.opacity = 1;
+                this.decay = Math.random() * 0.03 + 0.01;
+                this.active = true;
+            }
+
+            update() {
+                if (!this.active) return;
+                
+                this.currentX += this.vx;
+                this.currentY += this.vy;
+                this.currentZ += this.vz;
+                this.opacity -= this.decay;
+                
+                if (this.opacity <= 0 || this.currentZ < -fov) {
+                    this.active = false;
+                }
+            }
+
+            draw(ctx, cosX, sinX, cosY, sinY, centerX, centerY) {
+                if (!this.active) return;
+                
+                // 3D-Transformation
+                let y1 = this.currentY * cosX - this.currentZ * sinX;
+                let z1 = this.currentY * sinX + this.currentZ * cosX;
+                let x2 = this.currentX * cosY + z1 * sinY;
+                let z2 = -this.currentX * sinY + z1 * cosY;
+                let y2 = y1;
+                
+                let scale = fov / (fov + z2 + 800);
+                
+                if (scale > 0) {
+                    let drawX = centerX + x2 * scale;
+                    let drawY = centerY + y2 * scale;
+                    
+                    // Zeichne den Schweif
+                    ctx.beginPath();
+                    ctx.moveTo(drawX, drawY);
+                    
+                    // Endpunkt des Schweifs
+                    let tailY1 = (this.currentY - this.vy * this.length) * cosX - (this.currentZ - this.vz * this.length) * sinX;
+                    let tailZ1 = (this.currentY - this.vy * this.length) * sinX + (this.currentZ - this.vz * this.length) * cosX;
+                    let tailX2 = (this.currentX - this.vx * this.length) * cosY + tailZ1 * sinY;
+                    let tailZ2 = -(this.currentX - this.vx * this.length) * sinY + tailZ1 * cosY;
+                    let tailY2 = tailY1;
+                    
+                    let tailScale = fov / (fov + tailZ2 + 800);
+                    if (tailScale > 0) {
+                        ctx.lineTo(centerX + tailX2 * tailScale, centerY + tailY2 * tailScale);
+                    }
+                    
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${this.opacity * 0.8})`;
+                    ctx.lineWidth = Math.max(0.2, scale * 2);
+                    ctx.stroke();
+                    
+                    // Zeichne den "Kopf"
+                    ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                    ctx.fillRect(drawX, drawY, Math.max(0.5, scale * 3), Math.max(0.5, scale * 3));
+                }
+            }
+        }
 
         // --- 20 EINZIGARTIGE FARBPALETTEN ---
         const palettes = [
-            // 0: Nayas majestätische Start-Lilie (Knospe leicht heller gemacht, damit man sie gut sieht!)
+            // 0: Nayas majestätische Start-Lilie
             { bud: {h: 335, s: 95, l: 35}, center: {h: 45, s: 100, l: 50}, mid: {h: 330, s: 100, l: 60}, edge: {h: 340, s: 25, l: 95}, speckle: {h: 330, s: 100, l: 20} },
             
             { bud: {h: 350, s: 100, l: 15}, center: {h: 45, s: 90, l: 45}, mid: {h: 355, s: 95, l: 30}, edge: {h: 40, s: 50, l: 85}, speckle: {h: 350, s: 100, l: 10} },
@@ -270,7 +353,7 @@
                     let t = Math.random();
                     
                     let radiusOpen = isPistil ? (t * 15) : (t * 125);
-                    let pyOpen = -Math.sin(t * Math.PI * (isPistil ? 0.9 : 0.8)) * (isPistil ? 180 : 150);
+                    let pyOpen = -Math.sin(t * Math.PI * (isPistil ? 0.9 : 0.8)) * (isPistil ? 180 : 140);
                     
                     let thickness = isPistil ? 2.5 : 2.0;
                     let ox = Math.cos(angle) * radiusOpen + (Math.random()-0.5)*thickness;
@@ -363,9 +446,9 @@
         function handlePointerMove(e) {
             if (isDragging) {
                 let pos = getPos(e);
-                // INVERTIERTE RICHTUNG (Minuszeichen sorgt für natürliches Kamera-Gefühl)
                 vY = -(pos.x - prevTouchX) * 0.005; 
-                vX = -(pos.y - prevTouchY) * 0.005; 
+                // UMGEKEHRTE Y-ACHSE (Invertiert, damit Oben/Unten natürlich wirkt)
+                vX = (pos.y - prevTouchY) * 0.005; 
                 prevTouchX = pos.x;
                 prevTouchY = pos.y;
             }
@@ -416,6 +499,11 @@
                 hint.style.animation = 'none'; 
             }
 
+            // SELTENE STERNSCHNUPPEN LOGIK
+            if (Math.random() < 0.002 && shootingStars.length < 3) {
+                shootingStars.push(new ShootingStar());
+            }
+
             rotY += vY;
             rotX += vX;
             rotX = Math.max(-1.0, Math.min(1.0, rotX)); 
@@ -426,33 +514,38 @@
                 if (Math.abs(vY) < 0.0005) vY += 0.002; 
             }
 
-            let breathX = Math.sin(Date.now() * 0.001) * 0.02;
-            let breathY = Math.cos(Date.now() * 0.0008) * 0.02;
-
-            const cosX = Math.cos(rotX + breathX), sinX = Math.sin(rotX + breathX);
-            const cosY = Math.cos(rotY + breathY), sinY = Math.sin(rotY + breathY);
+            const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
 
             const centerX = width / 2;
             const centerY = height / 2 + 50; 
 
-            // 1. STERNENHIMMEL IM HINTERGRUND ZEICHNEN
+            // 1. STERNENHIMMEL UND STERNSCHNUPPEN ZEICHNEN (Im Hintergrund)
+            // ctx.globalCompositeOperation = 'source-over'; // Standard
+
+            // Sternschnuppen
+            for (let i = shootingStars.length - 1; i >= 0; i--) {
+                let s = shootingStars[i];
+                s.update();
+                s.draw(ctx, cosX, sinX, cosY, sinY, centerX, centerY);
+                if (!s.active) shootingStars.splice(i, 1);
+            }
+
+            // Sterne
             for (let i = 0; i < stars.length; i++) {
                 let s = stars[i];
                 
-                // Sterne drehen sich im 3D-Raum mit
                 let y1 = s.y * cosX - s.z * sinX;
                 let z1 = s.y * sinX + s.z * cosX;
                 let x2 = s.x * cosY + z1 * sinY;
                 let z2 = -s.x * sinY + z1 * cosY;
                 
-                // Ein bisschen weiter hinten projizieren (Tiefeneffekt)
                 let scale = fov / (fov + z2 + 800); 
                 
                 if (scale > 0) {
                     let drawX = centerX + x2 * scale;
                     let drawY = centerY + y1 * scale;
                     
-                    // Sanftes Blinken
                     let alpha = 0.2 + Math.sin(Date.now() * s.speed + s.offset) * 0.25; 
                     if (alpha < 0) alpha = 0;
                     
